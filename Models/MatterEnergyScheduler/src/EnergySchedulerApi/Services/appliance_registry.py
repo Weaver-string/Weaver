@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import List
 from datetime import datetime
 from ..Models.appliance import Appliance
 from .database_service import DatabaseService

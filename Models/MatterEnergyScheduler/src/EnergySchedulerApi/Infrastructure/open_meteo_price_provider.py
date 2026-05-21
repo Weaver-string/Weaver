@@ -1,8 +1,6 @@
-import aiohttp
 from datetime import datetime, date, timedelta
 from typing import List, Optional
 from ..Models.energy_price import EnergyPrice
-from .provider_errors import ProviderError
 
 class OpenMeteoPriceProvider:
     """Provides real energy prices using Open-Meteo (No API Key required)"""
@@ -100,7 +98,7 @@ class OpenMeteoPriceProvider:
                     print(f"DEBUG: Proxy 2 failed for {base_url}: {e}")
             
             if response is None or response.status_code != 200:
-                print(f"DEBUG: All fetch attempts failed for all domains.")
+                print("DEBUG: All fetch attempts failed for all domains.")
                 return self._generate_fallback_prices(date, bidding_zone)
             
             data = response.json()
@@ -115,7 +113,8 @@ class OpenMeteoPriceProvider:
             
             result = []
             for t_str, p in zip(times, prices):
-                if p is None: continue
+                if p is None:
+                    continue
                 # Open-Meteo returns EUR/MWh, we want EUR/kWh
                 price_kwh = p / 1000.0
                 result.append(EnergyPrice(

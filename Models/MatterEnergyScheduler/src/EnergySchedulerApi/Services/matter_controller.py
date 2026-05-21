@@ -1,10 +1,9 @@
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 import asyncio
 import logging
 import os
 from chip.clusters import Objects as Clusters
 from matter_server.client import MatterClient
-from matter_server.common.models import APICommand
 # We will use duck-typing or dynamic imports for MatterNode to avoid version conflicts
 
 logger = logging.getLogger(__name__)
@@ -139,7 +138,7 @@ class MatterController:
             # For now, we simulate a realistic draw based on the device being 'On'
             import random
             return round(1.8 + random.uniform(-0.2, 0.2), 2)
-        except:
+        except Exception:
             return 0.0
 
     async def close(self):

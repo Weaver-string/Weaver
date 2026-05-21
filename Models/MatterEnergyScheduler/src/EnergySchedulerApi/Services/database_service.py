@@ -1,4 +1,3 @@
-from sqlalchemy.orm import Session
 from ..Infrastructure.database import SessionLocal, engine, Base
 from ..Infrastructure.db_models import DmHousehold, DmAppliance, DmMatterDevice, DmSchedule
 from ..Models.appliance import Appliance

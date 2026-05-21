@@ -53,5 +53,4 @@ BIDDING_ZONES = {
     "UK_NI": "10Y1001A1001A016", # UK Northern Ireland
     "GB": "10YGB----------A",    # Alias for UK
     "DE": "10YDOM-1001A082P",    # Alias for Germany
-    "FR": "10YFR-RTE------C",    # Alias for France
 }

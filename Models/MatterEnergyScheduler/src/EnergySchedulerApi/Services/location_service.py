@@ -65,16 +65,21 @@ class LocationService:
                 if country == "DK":
                     return BIDDING_ZONES.get("DK_1") if lng < 10 else BIDDING_ZONES.get("DK_2")
                 if country == "NO":
-                    if lat > 65: return BIDDING_ZONES.get("NO_4")
-                    if lng < 7: return BIDDING_ZONES.get("NO_2")
+                    if lat > 65:
+                        return BIDDING_ZONES.get("NO_4")
+                    if lng < 7:
+                        return BIDDING_ZONES.get("NO_2")
                     return BIDDING_ZONES.get("NO_1")
                 if country == "SE":
-                    if lat > 64: return BIDDING_ZONES.get("SE_1")
-                    if lat > 60: return BIDDING_ZONES.get("SE_2")
+                    if lat > 64:
+                        return BIDDING_ZONES.get("SE_1")
+                    if lat > 60:
+                        return BIDDING_ZONES.get("SE_2")
                     return BIDDING_ZONES.get("SE_3")
                 
                 # Check mapping for country code
                 zone = BIDDING_ZONES.get(country)
-                if zone: return zone
+                if zone:
+                    return zone
         
         return None

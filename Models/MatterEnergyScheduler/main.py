@@ -344,15 +344,6 @@ async def set_appliance_deadline(appliance_id: str, request: SetDeadlineRequest)
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@app.delete("/appliances/{appliance_id}")
-async def delete_appliance(appliance_id: str):
-    """Remove an appliance from registry"""
-    try:
-        return appliance_registry.remove_appliance(appliance_id)
-    except KeyError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-
-
 @app.post("/appliances/{appliance_id}/run-now")
 async def run_appliance_now(appliance_id: str):
     """Immediately trigger an appliance to run via Matter device"""

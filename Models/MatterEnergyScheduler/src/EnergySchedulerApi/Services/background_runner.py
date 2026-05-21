@@ -165,7 +165,8 @@ class BackgroundRunnerService:
             with self.db_service.get_db() as db:
                 from EnergySchedulerApi.Infrastructure.db_models import DmSchedule
                 old_schedule = db.query(DmSchedule).filter(DmSchedule.job_id == old_job_id).first()
-                if not old_schedule: return
+                if not old_schedule:
+                    return
 
                 # Find the next deadline by adding 1 day to the previous target date
                 # and keeping the same time of day as the 'Deadline'.

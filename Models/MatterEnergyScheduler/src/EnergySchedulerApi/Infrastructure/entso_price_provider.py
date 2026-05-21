@@ -1,6 +1,5 @@
 from typing import List, Optional, Any
 from datetime import datetime, date, timedelta
-import httpx
 import json
 import logging
 import os
@@ -365,8 +364,10 @@ class EntsoePriceProvider:
                         # ENTSO-E usually specifies resolution (PT60M, PT15M, etc.)
                         res_str = period.findtext('{*}resolution', 'PT60M')
                         interval_mins = 60
-                        if 'PT15M' in res_str: interval_mins = 15
-                        elif 'PT30M' in res_str: interval_mins = 30
+                        if 'PT15M' in res_str:
+                            interval_mins = 15
+                        elif 'PT30M' in res_str:
+                            interval_mins = 30
                         
                         point_time = start_time + timedelta(minutes=interval_mins * (position - 1))
                         
