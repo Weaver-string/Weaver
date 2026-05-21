@@ -14,6 +14,24 @@ It runs inside the user's home network, commissions Matter devices through a loc
   - Solar + grid
 - Uses a local FastAPI backend and a Next.js frontend.
 
+## How Price Scheduling Works
+
+Weaver is built for flexible appliances: devices that do not need to start immediately, but do need to finish before a deadline. Examples include a dishwasher, washing machine, dryer, water heater, or EV charger.
+
+When you choose a city, Weaver uses that location to fetch local electricity price data and plan the run. The scheduler works in 30-minute blocks and looks for a start time that finishes before the appliance deadline.
+
+In grid-only mode, Weaver uses a cheapest-window algorithm. It sorts through the available price periods, estimates the cost of running the appliance in each possible window, skips windows that would miss the deadline or exceed the configured home load limit, and chooses the lowest-cost valid window.
+
+In solar + grid mode, Weaver gives priority to using your own solar power first. This matters because self-consuming rooftop solar is often worth more than exporting it, especially when export rates are lower than import prices. The scheduler scores each possible run window by estimating how much of the appliance load can be covered by forecast solar production, then uses grid price optimization for the remaining energy. In practical terms: run when your panels are expected to produce, and use cheaper grid periods as the backup.
+
+The backend also contains an experimental grid + solar + BESS scheduler. BESS means battery energy storage system, such as a home battery. That algorithm simulates energy flow in this order:
+
+```text
+solar -> appliance -> battery -> grid
+```
+
+It uses available solar first, then battery energy above a reserve buffer, then grid power only for the remaining demand. It also simulates charging the battery from excess solar. Weaver does not expose this as the main home mode yet because most home batteries are not broadly controllable through Matter today. When more BESS devices are Matter-ready, the goal is to add a battery mode that can coordinate solar, stored energy, and grid prices together.
+
 ## Repository Layout
 
 ```text
