@@ -24,13 +24,9 @@ In grid-only mode, Weaver uses a cheapest-window algorithm. It sorts through the
 
 In solar + grid mode, Weaver gives priority to using your own solar power first. This matters because self-consuming rooftop solar is often worth more than exporting it, especially when export rates are lower than import prices. The scheduler scores each possible run window by estimating how much of the appliance load can be covered by forecast solar production, then uses grid price optimization for the remaining energy. In practical terms: run when your panels are expected to produce, and use cheaper grid periods as the backup.
 
-The backend also contains an experimental grid + solar + BESS scheduler. BESS means battery energy storage system, such as a home battery. That algorithm simulates energy flow in this order:
+Grid + solar + BESS mode is planned, but not completed yet. BESS means battery energy storage system, such as a home battery. The goal is to support homes where Weaver can coordinate appliance demand with rooftop solar, stored battery energy, and grid prices together.
 
-```text
-solar -> appliance -> battery -> grid
-```
-
-It uses available solar first, then battery energy above a reserve buffer, then grid power only for the remaining demand. It also simulates charging the battery from excess solar. Weaver does not expose this as the main home mode yet because most home batteries are not broadly controllable through Matter today. When more BESS devices are Matter-ready, the goal is to add a battery mode that can coordinate solar, stored energy, and grid prices together.
+The intended BESS algorithm would use available solar first, then battery energy above a reserve buffer, and then grid power for any remaining demand. It would also account for charging the battery from excess solar. This mode depends on home batteries becoming more broadly controllable through Matter, so Weaver currently focuses on grid-only and solar + grid scheduling.
 
 ## Repository Layout
 
