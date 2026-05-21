@@ -23,6 +23,7 @@ install.ps1                        Windows dependency install script
 start-matter-server.ps1            Starts the local Home Assistant Matter Server from Python
 start-weaver.ps1                   Windows local startup script
 stop-weaver.ps1                    Windows local stop script
+uninstall.ps1                      Removes installed local dependencies
 Start Weaver.vbs                   Double-click local launcher
 Stop Weaver.vbs                    Double-click local stop helper
 ```
@@ -67,6 +68,22 @@ http://127.0.0.1:3000
 Put the Matter appliance into pairing mode, click Connect Device in Weaver, and enter the device's Matter setup code or `MT:` payload.
 
 You can also start Weaver from File Explorer by opening the repo folder and double-clicking `Start Weaver.vbs`. To stop Weaver, double-click `Stop Weaver.vbs`.
+
+## Uninstall
+
+To remove Weaver's installed dependencies from this folder:
+
+```powershell
+.\uninstall.ps1
+```
+
+This removes the Python virtual environment, frontend dependencies, and build caches. It keeps local Weaver app data by default.
+
+To also remove local Weaver app data, including Matter Server state:
+
+```powershell
+.\uninstall.ps1 -RemoveData
+```
 
 ## Matter Notes
 
