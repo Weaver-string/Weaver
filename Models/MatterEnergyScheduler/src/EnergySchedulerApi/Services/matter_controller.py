@@ -2,8 +2,6 @@ from typing import Any, Optional
 import asyncio
 import logging
 import os
-from chip.clusters import Objects as Clusters
-from matter_server.client import MatterClient
 # We will use duck-typing or dynamic imports for MatterNode to avoid version conflicts
 
 logger = logging.getLogger(__name__)
@@ -18,6 +16,7 @@ class MatterController:
 
     async def list_nodes(self):
         import aiohttp
+        from matter_server.client import MatterClient
 
         async with aiohttp.ClientSession() as session:
             client = MatterClient(self.server_url, session)
@@ -27,8 +26,10 @@ class MatterController:
             finally:
                 await client.disconnect()
 
-    async def _find_onoff_endpoint(self, client: MatterClient, node_id: int) -> int:
+    async def _find_onoff_endpoint(self, client: Any, node_id: int) -> int:
         """Find the first endpoint exposing the standard Matter OnOff cluster."""
+        from chip.clusters import Objects as Clusters
+
         try:
             node = client.get_node(node_id)
             for endpoint_id, endpoint in node.endpoints.items():
@@ -51,6 +52,8 @@ class MatterController:
         node_id can be the Hub's integer Node ID.
         """
         import aiohttp
+        from chip.clusters import Objects as Clusters
+        from matter_server.client import MatterClient
 
         matter_commands = {
             "run_now": "On",
@@ -94,6 +97,7 @@ class MatterController:
     async def get_onoff_status(self, node_id: Any, endpoint_id: Optional[int] = None) -> dict[str, Any]:
         """Read the device-reported Matter OnOff state from endpoint 1."""
         import aiohttp
+        from matter_server.client import MatterClient
 
         async with aiohttp.ClientSession() as session:
             client = MatterClient(self.server_url, session)

@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Dict, Optional, Any
 
 import aiohttp
-from matter_server.client import MatterClient
 
 from ..Models.matter_device import MatterDevice
 from .matter_server_ws_client import MatterServerError
@@ -47,6 +46,7 @@ class MatterCommissioningService:
         client = None
         try:
             session = aiohttp.ClientSession()
+            from matter_server.client import MatterClient
             from .matter_server_ws_client import MatterServerWsClient
 
             ws_url = self.ws_url or MatterServerWsClient().ws_url
