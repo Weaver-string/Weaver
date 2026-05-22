@@ -20,6 +20,8 @@ Weaver is built for flexible appliances: devices that do not need to start immed
 
 When you choose a city, Weaver uses that location to fetch local electricity price data and plan the run. The scheduler works in 30-minute blocks and looks for a start time that finishes before the appliance deadline.
 
+The price data is wholesale electricity market pricing. It does not represent a fixed household tariff or a utility plan where you pay the same rate all day. Weaver's price scheduling is meant to reflect dynamic electricity plans, where the price changes by time period and the utility or supplier passes some version of that signal to the customer.
+
 In grid-only mode, Weaver uses a cheapest-window algorithm. It sorts through the available price periods, estimates the cost of running the appliance in each possible window, skips windows that would miss the deadline or exceed the configured home load limit, and chooses the lowest-cost valid window.
 
 In solar + grid mode, Weaver gives priority to using your own solar power first. This matters because self-consuming rooftop solar is often worth more than exporting it, especially when export rates are lower than import prices. The scheduler scores each possible run window by estimating how much of the appliance load can be covered by forecast solar production, then uses grid price optimization for the remaining energy. In practical terms: run when your panels are expected to produce, and use cheaper grid periods as the backup.
