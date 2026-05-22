@@ -113,6 +113,27 @@ def to_naive_datetime(value: datetime) -> datetime:
         return value
     return value.astimezone().replace(tzinfo=None)
 
+
+def get_existing_schedules_for_request(request) -> List[ScheduledAppliance]:
+    existing = list(request.existing_schedules or [])
+    now = datetime.now()
+    for schedule in db_service.get_pending_schedules():
+        if schedule["appliance_id"] == request.appliance_id:
+            continue
+        start_time = to_naive_datetime(schedule["start_time"])
+        if start_time + timedelta(seconds=schedule["duration_seconds"]) <= now:
+            continue
+        existing.append(
+            ScheduledAppliance(
+                appliance_id=schedule["appliance_id"],
+                start_time=start_time,
+                duration_seconds=schedule["duration_seconds"],
+                power_usage_kw=schedule["power_usage_kw"],
+            )
+        )
+    return existing
+
+
 @app.get("/", include_in_schema=False)
 async def root():
     return RedirectResponse(url="/docs")
@@ -416,16 +437,14 @@ async def schedule_grid_only(request: ScheduleRequest):
             power_profile=appliance.power_profile
         )
 
-        try:
-            start_time = grid_only_scheduler.calculate_optimal_start_time(
-                temp_appliance,
-                prices,
-                request.existing_schedules,
-                request.house_limit_kw
-            )
-        except Exception as e:
-            logging.error(f"Scheduling calculation failed, falling back to immediate: {e}")
-            start_time = datetime.now()
+        existing_schedules = get_existing_schedules_for_request(request)
+
+        start_time = grid_only_scheduler.calculate_optimal_start_time(
+            temp_appliance,
+            prices,
+            existing_schedules,
+            request.house_limit_kw
+        )
 
         job_id = background_runner.schedule_appliance(
             request.appliance_id, 
@@ -474,11 +493,13 @@ async def schedule_grid_pv(request: ScheduleRequest):
             power_profile=appliance.power_profile
         )
 
+        existing_schedules = get_existing_schedules_for_request(request)
+
         start_time = grid_pv_scheduler.calculate_optimal_start_time(
             temp_appliance,
             prices,
             solar,
-            request.existing_schedules,
+            existing_schedules,
             request.house_limit_kw
         )
         job_id = background_runner.schedule_appliance(
@@ -536,6 +557,8 @@ async def schedule_grid_pv_bess(request: ScheduleRequest):
             power_profile=appliance.power_profile
         )
 
+        existing_schedules = get_existing_schedules_for_request(request)
+
         start_time = grid_pv_bess_scheduler.calculate_optimal_start_time(
             temp_appliance,
             prices,
@@ -543,7 +566,7 @@ async def schedule_grid_pv_bess(request: ScheduleRequest):
             request.current_bess_soc_kwh,
             request.household.bess_capacity_kwh,
             bess_min_soc,
-            request.existing_schedules,
+            existing_schedules,
             request.house_limit_kw
         )
         job_id = background_runner.schedule_appliance(

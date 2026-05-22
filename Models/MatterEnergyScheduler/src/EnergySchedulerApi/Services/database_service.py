@@ -174,9 +174,12 @@ class DatabaseService:
             db.add(db_schedule)
             db.commit()
 
-    def get_pending_schedules(self) -> List[dict]:
+    def get_pending_schedules(self, appliance_id: Optional[str] = None) -> List[dict]:
         with self.get_db() as db:
-            db_schedules = db.query(DmSchedule).filter(DmSchedule.status == "pending").all()
+            query = db.query(DmSchedule).filter(DmSchedule.status == "pending")
+            if appliance_id is not None:
+                query = query.filter(DmSchedule.appliance_id == appliance_id)
+            db_schedules = query.all()
             return [
                 {
                     "appliance_id": s.appliance_id,
@@ -187,6 +190,14 @@ class DatabaseService:
                     "is_daily": s.is_daily
                 } for s in db_schedules
             ]
+
+    def cancel_pending_schedules_for_appliance(self, appliance_id: str):
+        with self.get_db() as db:
+            db.query(DmSchedule).filter(
+                DmSchedule.appliance_id == appliance_id,
+                DmSchedule.status == "pending",
+            ).update({"status": "cancelled"})
+            db.commit()
 
     def update_schedule_status(self, job_id: str, status: str):
         with self.get_db() as db:

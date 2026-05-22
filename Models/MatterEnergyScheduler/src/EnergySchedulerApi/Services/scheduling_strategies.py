@@ -79,9 +79,7 @@ class SchedulerBase:
         )
         if earliest:
             return earliest
-        if now + timedelta(hours=appliance_duration_hours) <= deadline:
-            return now
-        return max(deadline - timedelta(hours=appliance_duration_hours), now)
+        raise ValueError("No feasible schedule found within deadline and house load limit")
 
 
 class GridOnlyScheduler(SchedulerBase):

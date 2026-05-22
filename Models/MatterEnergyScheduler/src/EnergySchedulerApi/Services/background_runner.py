@@ -67,6 +67,14 @@ class BackgroundRunnerService:
 
     def schedule_appliance(self, appliance_id: str, start_time: datetime, duration: int, power: float, is_daily: bool = False):
         """Schedules an appliance to run at the given start_time"""
+        existing_jobs = self.db_service.get_pending_schedules(appliance_id=appliance_id)
+        for existing in existing_jobs:
+            existing_job_id = existing.get("job_id")
+            if existing_job_id and self.scheduler.get_job(existing_job_id):
+                self.scheduler.remove_job(existing_job_id)
+        if existing_jobs:
+            self.db_service.cancel_pending_schedules_for_appliance(appliance_id)
+
         job_id = f"job_run_{appliance_id}_{start_time.timestamp()}"
         
         # Don't schedule in the past
