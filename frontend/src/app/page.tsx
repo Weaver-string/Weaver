@@ -733,26 +733,10 @@ export default function Home() {
         ) : (
           <>
           <section className="space-y-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Run queue</h2>
-                <p className="text-xs text-slate-500 mt-1">Running devices stay on top. Scheduled devices wait below them.</p>
-              </div>
-              <button
-                onClick={() => setIsScanning(true)}
-                className="w-10 h-10 rounded-lg bg-primary text-white flex items-center justify-center shadow-sm"
-                title="Connect device"
-              >
-                <Plus size={18} />
-              </button>
+            <div>
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Run queue</h2>
+              <p className="text-xs text-slate-500 mt-1">Running devices stay on top. Scheduled devices wait below them.</p>
             </div>
-
-            {queueAppliances.length === 0 && (
-              <div className="organic-card p-4 border-dashed border-slate-300">
-                <p className="text-sm font-semibold text-slate-700">No running or scheduled appliances</p>
-                <p className="mt-1 text-xs text-slate-500">Use a connected device below to run immediately or create an optimized schedule.</p>
-              </div>
-            )}
 
             {queueAppliances.map((app, index) => {
               const isVirtual = isVirtualAppliance(app);
@@ -863,9 +847,18 @@ export default function Home() {
           </section>
 
           <section className="space-y-3">
-            <div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">All connected devices</h2>
-              <p className="text-xs text-slate-500 mt-1">Every paired appliance appears here, whether idle, scheduled, or running.</p>
+            <div className="flex justify-between items-center gap-3">
+              <div>
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">All connected devices</h2>
+                <p className="text-xs text-slate-500 mt-1">Every paired appliance appears here, whether idle, scheduled, or running.</p>
+              </div>
+              <button
+                onClick={() => setIsScanning(true)}
+                className="w-10 h-10 rounded-lg bg-primary text-white flex items-center justify-center shadow-sm shrink-0"
+                title="Connect device"
+              >
+                <Plus size={18} />
+              </button>
             </div>
 
             {connectedAppliances.map((app) => {
