@@ -116,6 +116,7 @@ export default function Home() {
   const [dailyToggles, setDailyToggles] = useState<Record<string, boolean>>({});
   const [schedules, setSchedules] = useState<ScheduleJob[]>([]);
   const [runningIds, setRunningIds] = useState<Set<string>>(new Set());
+  const [virtualRunningIds, setVirtualRunningIds] = useState<Set<string>>(new Set());
   const [startingIds, setStartingIds] = useState<Set<string>>(new Set());
 
   // Debug schedules
@@ -155,6 +156,7 @@ export default function Home() {
   const cityDisplay = selectedCity || (hasCitySet ? ZONE_NAMES[biddingZone || ""] || "Selected city" : null);
   const priceSourceLabel = currentPrice?.is_real ? "Live price" : "Estimated fallback price";
   const isVirtualAppliance = (app: Appliance) => app.device_type === "virtual_load" || app.matter_device_id.startsWith("virtual_");
+  const isApplianceRunning = (app: Appliance) => runningIds.has(app.id) || virtualRunningIds.has(app.id);
 
   async function fetchData() {
     try {
@@ -364,10 +366,26 @@ export default function Home() {
   };
 
   const handleRunNow = async (applianceId: string) => {
+    const app = appliances.find(a => a.id === applianceId);
+    if (app && isVirtualAppliance(app)) {
+      setVirtualRunningIds(prev => new Set(prev).add(applianceId));
+      toast.success(`${app.name} started for UI testing`, {
+        icon: <Zap size={16} />,
+        style: { borderRadius: '16px', background: '#187b8f', color: '#fff', fontWeight: 'bold' },
+      });
+      window.setTimeout(() => {
+        setVirtualRunningIds(prev => {
+          const next = new Set(prev);
+          next.delete(applianceId);
+          return next;
+        });
+      }, 30000);
+      return;
+    }
+
     setStartingIds(prev => new Set(prev).add(applianceId));
     try {
       await weaverApi.runApplianceNow(applianceId);
-      const app = appliances.find(a => a.id === applianceId);
       setRunningIds(prev => new Set(prev).add(applianceId));
       toast.success(`${app?.name || "Device"} started!`, {
         icon: <Zap size={16} />,
@@ -513,8 +531,8 @@ export default function Home() {
   const getSchedule = (appId: string) => schedules.find(s => String(s.appliance_id) === String(appId));
 
   const queueAppliances = [...appliances].sort((a, b) => {
-    const aRunning = runningIds.has(a.id);
-    const bRunning = runningIds.has(b.id);
+    const aRunning = isApplianceRunning(a);
+    const bRunning = isApplianceRunning(b);
     if (aRunning !== bRunning) return aRunning ? -1 : 1;
 
     const aScheduled = Boolean(getSchedule(a.id));
@@ -522,11 +540,11 @@ export default function Home() {
     if (aScheduled !== bScheduled) return aScheduled ? -1 : 1;
 
     return a.name.localeCompare(b.name);
-  }).filter((app) => runningIds.has(app.id) || Boolean(getSchedule(app.id)));
+  }).filter((app) => isApplianceRunning(app) || Boolean(getSchedule(app.id)));
 
   const connectedAppliances = [...appliances].sort((a, b) => {
-    const aRunning = runningIds.has(a.id);
-    const bRunning = runningIds.has(b.id);
+    const aRunning = isApplianceRunning(a);
+    const bRunning = isApplianceRunning(b);
     if (aRunning !== bRunning) return aRunning ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
@@ -750,7 +768,7 @@ export default function Home() {
 
             {queueAppliances.map((app, index) => {
               const isVirtual = isVirtualAppliance(app);
-              const isRunning = runningIds.has(app.id);
+              const isRunning = isApplianceRunning(app);
               const scheduleTime = getScheduleTime(app.id);
               const hasSchedule = Boolean(getSchedule(app.id));
               const statusLabel = isRunning ? "Running" : hasSchedule ? "Scheduled" : "Ready";
@@ -831,10 +849,10 @@ export default function Home() {
                   <div className="grid grid-cols-[1fr_auto] gap-2">
                     <button
                       onClick={() => handleRunNow(app.id)}
-                      disabled={startingIds.has(app.id) || isVirtual}
+                      disabled={startingIds.has(app.id)}
                       className="h-11 bg-primary text-white rounded-lg font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-60"
                     >
-                      <Zap size={14} fill="currentColor" /> {isVirtual ? "Schedule Only" : startingIds.has(app.id) ? "Starting..." : isRunning ? "Send Run Again" : "Run Now"}
+                      <Zap size={14} fill="currentColor" /> {startingIds.has(app.id) ? "Starting..." : isRunning ? "Send Run Again" : "Run Now"}
                     </button>
                     <button
                       onClick={() => handleDisconnect(app.id)}
@@ -873,7 +891,7 @@ export default function Home() {
 
             {connectedAppliances.map((app) => {
               const isVirtual = isVirtualAppliance(app);
-              const isRunning = runningIds.has(app.id);
+              const isRunning = isApplianceRunning(app);
               const scheduleTime = getScheduleTime(app.id);
               const status = isRunning ? "Running" : scheduleTime ? `Starts ${scheduleTime}` : "Idle";
 
@@ -895,10 +913,10 @@ export default function Home() {
                     <div className="flex gap-2 shrink-0">
                       <button
                         onClick={() => handleRunNow(app.id)}
-                        disabled={startingIds.has(app.id) || isVirtual}
+                        disabled={startingIds.has(app.id)}
                         className="h-10 px-3 rounded-lg bg-primary text-white font-bold text-[10px] uppercase tracking-widest disabled:opacity-60"
                       >
-                        {isVirtual ? "Test" : startingIds.has(app.id) ? "Starting" : "Run"}
+                        {startingIds.has(app.id) ? "Starting" : "Run"}
                       </button>
                       <button
                         onClick={() => handleDisconnect(app.id)}
@@ -909,12 +927,34 @@ export default function Home() {
                       </button>
                     </div>
                   </div>
-                  <button
-                    onClick={() => toggleQueue(app.id)}
-                    className="mt-3 w-full h-9 rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200"
-                  >
-                    {hasCitySet ? (scheduleTime ? "Update schedule" : "Schedule") : "Choose city to schedule"}
-                  </button>
+                  {hasCitySet ? (
+                    <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                      <label className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1">
+                          <Clock size={11} /> Deadline
+                        </span>
+                        <input
+                          type="time"
+                          value={deadlines[app.id]}
+                          onChange={(e) => setDeadlines({ ...deadlines, [app.id]: e.target.value })}
+                          className="w-full h-10 px-3 rounded-lg bg-white border border-slate-200 focus:border-primary font-semibold text-slate-800 outline-none"
+                        />
+                      </label>
+                      <button
+                        onClick={() => toggleQueue(app.id)}
+                        className="self-end h-10 px-4 rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200"
+                      >
+                        {scheduleTime ? "Update" : "Schedule run"}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => toggleQueue(app.id)}
+                      className="mt-3 w-full h-9 rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200"
+                    >
+                      Choose city to schedule
+                    </button>
+                  )}
                 </motion.article>
               );
             })}
