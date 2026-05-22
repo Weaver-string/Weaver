@@ -45,6 +45,25 @@ function Resolve-Python {
     }
   }
 
+  $pythonRoots = @(
+    (Join-Path $env:LOCALAPPDATA "Programs\Python"),
+    $env:ProgramFiles,
+    ${env:ProgramFiles(x86)}
+  ) | Where-Object { $_ -and (Test-Path $_) }
+
+  $pythonExecutables = foreach ($pythonRoot in $pythonRoots) {
+    Get-ChildItem -Path $pythonRoot -Filter python.exe -Recurse -ErrorAction SilentlyContinue
+  }
+
+  foreach ($pythonExecutable in ($pythonExecutables | Sort-Object FullName -Descending)) {
+    if (Test-PythonInvocation -Command $pythonExecutable.FullName) {
+      return @{
+        Command = $pythonExecutable.FullName
+        Arguments = @()
+      }
+    }
+  }
+
   Write-Error "Python 3.11 or newer was not found. Install Python 3.13 from https://www.python.org/downloads/windows/, enable 'Add python.exe to PATH', reopen PowerShell, then run .\install.ps1 again."
 }
 
