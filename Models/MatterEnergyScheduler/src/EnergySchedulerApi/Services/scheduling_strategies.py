@@ -1,5 +1,6 @@
 from typing import List, Optional
 from datetime import datetime, timedelta
+from math import ceil
 from ..Models.appliance import Appliance
 from ..Models.energy_price import EnergyPrice
 from ..Models.solar_production import SolarProduction
@@ -50,7 +51,7 @@ class SchedulerBase:
         search_start: Optional[datetime] = None
     ) -> Optional[datetime]:
         start_time = self._align_to_interval(search_start or datetime.now())
-        num_intervals = max(1, int(duration_hours / self.INTERVAL_HOURS))
+        num_intervals = max(1, ceil(duration_hours / self.INTERVAL_HOURS))
         interval_length = timedelta(hours=self.INTERVAL_HOURS)
 
         while start_time + timedelta(hours=duration_hours) <= deadline:
@@ -94,7 +95,7 @@ class GridOnlyScheduler(SchedulerBase):
         house_limit_kw: float = 11.0
     ) -> datetime:
         prices = sorted(prices, key=lambda p: p.start_time) if prices else []
-        num_intervals = max(1, int(appliance.duration.total_seconds() / (self.INTERVAL_HOURS * 3600)))
+        num_intervals = max(1, ceil(appliance.duration.total_seconds() / (self.INTERVAL_HOURS * 3600)))
         
         min_cost = float('inf')
         optimal_start = None
@@ -132,7 +133,7 @@ class GridOnlyScheduler(SchedulerBase):
     ) -> List[ScheduledAppliance]:
         """Special logic for EVs: find the N cheapest 30m intervals before deadline"""
         prices = sorted(prices, key=lambda p: p.start_time)
-        intervals_needed = max(1, int(appliance.duration_seconds / (self.INTERVAL_HOURS * 3600)))
+        intervals_needed = max(1, ceil(appliance.duration_seconds / (self.INTERVAL_HOURS * 3600)))
         
         valid_intervals = []
         for p in prices:
@@ -174,7 +175,7 @@ class GridAndPvScheduler(SchedulerBase):
     ) -> datetime:
         prices = sorted(prices, key=lambda p: p.start_time) if prices else []
         solar_production = sorted(solar_production, key=lambda s: s.time) if solar_production else []
-        num_intervals = max(1, int(appliance.duration.total_seconds() / (self.INTERVAL_HOURS * 3600)))
+        num_intervals = max(1, ceil(appliance.duration.total_seconds() / (self.INTERVAL_HOURS * 3600)))
         
         best_score = float('-inf')
         optimal_start = None
@@ -229,7 +230,7 @@ class GridPvAndBessScheduler(SchedulerBase):
     ) -> datetime:
         prices = sorted(prices, key=lambda p: p.start_time) if prices else []
         solar_production = sorted(solar_production, key=lambda s: s.time) if solar_production else []
-        num_intervals = max(1, int(appliance.duration.total_seconds() / (self.INTERVAL_HOURS * 3600)))
+        num_intervals = max(1, ceil(appliance.duration.total_seconds() / (self.INTERVAL_HOURS * 3600)))
 
         best_score = float('-inf')
         optimal_start = None
@@ -303,7 +304,7 @@ class WaterHeaterScheduler(SchedulerBase):
     ) -> datetime:
         prices = sorted(prices, key=lambda p: p.start_time) if prices else []
         solar_production = sorted(solar_production, key=lambda s: s.time) if solar_production else []
-        num_intervals = max(1, int(heater.duration_seconds / (self.INTERVAL_HOURS * 3600)))
+        num_intervals = max(1, ceil(heater.duration_seconds / (self.INTERVAL_HOURS * 3600)))
 
         if heater.current_temperature_c < heater.min_temperature_c:
             immediate = self._find_first_feasible_start(

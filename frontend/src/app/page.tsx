@@ -731,7 +731,7 @@ export default function Home() {
               const statusText = isRunning
                 ? "Appliance reports active through Matter."
                 : scheduleTime
-                  ? `Optimized run at ${scheduleTime}`
+                  ? `Scheduled start: ${scheduleTime}`
                   : hasCitySet
                     ? "Ready for optimized scheduling."
                     : "Ready for direct Matter control.";
@@ -837,7 +837,7 @@ export default function Home() {
             {connectedAppliances.map((app) => {
               const isRunning = runningIds.has(app.id);
               const scheduleTime = getScheduleTime(app.id);
-              const status = isRunning ? "Running" : scheduleTime ? `Scheduled ${scheduleTime}` : "Idle";
+              const status = isRunning ? "Running" : scheduleTime ? `Starts ${scheduleTime}` : "Idle";
 
               return (
                 <motion.article key={`connected-${app.id}`} layout className="organic-card p-4">
