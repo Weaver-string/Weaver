@@ -114,6 +114,12 @@ def to_naive_datetime(value: datetime) -> datetime:
     return value.astimezone().replace(tzinfo=None)
 
 
+def effective_duration_seconds(duration_seconds: Optional[int]) -> int:
+    if duration_seconds and duration_seconds > 0:
+        return duration_seconds
+    return 3600
+
+
 def get_existing_schedules_for_request(request) -> List[ScheduledAppliance]:
     existing = list(request.existing_schedules or [])
     now = datetime.now()
@@ -127,7 +133,7 @@ def get_existing_schedules_for_request(request) -> List[ScheduledAppliance]:
             ScheduledAppliance(
                 appliance_id=schedule["appliance_id"],
                 start_time=start_time,
-                duration_seconds=schedule["duration_seconds"],
+                duration_seconds=effective_duration_seconds(schedule.get("duration_seconds")),
                 power_usage_kw=schedule["power_usage_kw"],
             )
         )
@@ -379,7 +385,7 @@ async def run_appliance_now(appliance_id: str):
             target_id,
             "run_now",
             {
-                "duration_seconds": appliance.duration_seconds,
+                "duration_seconds": effective_duration_seconds(appliance.duration_seconds),
                 "power_kw": appliance.power_usage_kw
             },
             endpoint_id=appliance.matter_device_port if appliance.matter_device_port else None,
@@ -427,7 +433,7 @@ async def schedule_grid_only(request: ScheduleRequest):
             id=appliance.id,
             name=appliance.name,
             power_usage_kw=appliance.power_usage_kw,
-            duration_seconds=appliance.duration_seconds,
+            duration_seconds=effective_duration_seconds(appliance.duration_seconds),
             deadline=deadline,
             matter_device_id=appliance.matter_device_id,
             matter_device_ip=appliance.matter_device_ip,
@@ -449,7 +455,7 @@ async def schedule_grid_only(request: ScheduleRequest):
         job_id = background_runner.schedule_appliance(
             request.appliance_id, 
             start_time, 
-            temp_appliance.duration_seconds, 
+            effective_duration_seconds(temp_appliance.duration_seconds), 
             temp_appliance.power_usage_kw,
             is_daily=request.is_daily
         )
@@ -483,7 +489,7 @@ async def schedule_grid_pv(request: ScheduleRequest):
             id=appliance.id,
             name=appliance.name,
             power_usage_kw=appliance.power_usage_kw,
-            duration_seconds=appliance.duration_seconds,
+            duration_seconds=effective_duration_seconds(appliance.duration_seconds),
             deadline=deadline,
             matter_device_id=appliance.matter_device_id,
             matter_device_ip=appliance.matter_device_ip,
@@ -505,7 +511,7 @@ async def schedule_grid_pv(request: ScheduleRequest):
         job_id = background_runner.schedule_appliance(
             request.appliance_id, 
             start_time, 
-            temp_appliance.duration_seconds, 
+            effective_duration_seconds(temp_appliance.duration_seconds), 
             temp_appliance.power_usage_kw,
             is_daily=request.is_daily
         )
@@ -547,7 +553,7 @@ async def schedule_grid_pv_bess(request: ScheduleRequest):
             id=appliance.id,
             name=appliance.name,
             power_usage_kw=appliance.power_usage_kw,
-            duration_seconds=appliance.duration_seconds,
+            duration_seconds=effective_duration_seconds(appliance.duration_seconds),
             deadline=deadline,
             matter_device_id=appliance.matter_device_id,
             matter_device_ip=appliance.matter_device_ip,
@@ -572,7 +578,7 @@ async def schedule_grid_pv_bess(request: ScheduleRequest):
         job_id = background_runner.schedule_appliance(
             request.appliance_id, 
             start_time, 
-            temp_appliance.duration_seconds, 
+            effective_duration_seconds(temp_appliance.duration_seconds), 
             temp_appliance.power_usage_kw,
             is_daily=request.is_daily
         )
@@ -648,7 +654,7 @@ async def schedule_multi_appliance(
                 id=appliance.id,
                 name=appliance.name,
                 power_usage_kw=appliance.power_usage_kw,
-                duration_seconds=appliance.duration_seconds,
+                duration_seconds=effective_duration_seconds(appliance.duration_seconds),
                 deadline=deadline,
                 matter_device_id=appliance.matter_device_id,
                 matter_device_ip=appliance.matter_device_ip,

@@ -817,58 +817,10 @@ export default function Home() {
 
                   <div className="border border-slate-200 rounded-lg p-3">
                     <p className="text-sm font-semibold text-slate-700">{statusText}</p>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                      <label className={cn("space-y-1", !hasCitySet && "opacity-50")}>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1">
-                          <Clock size={11} /> Deadline
-                        </span>
-                        <input
-                          type="time"
-                          disabled={!hasCitySet}
-                          value={deadlines[app.id]}
-                          onChange={(e) => setDeadlines({ ...deadlines, [app.id]: e.target.value })}
-                          className="w-full h-10 px-3 rounded-lg bg-white border border-slate-200 focus:border-primary font-semibold text-slate-800 outline-none"
-                        />
-                      </label>
-                      <div className={cn("space-y-1", !hasCitySet && "opacity-50")}>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Daily run</span>
-                        <button
-                          disabled={!hasCitySet}
-                          onClick={() => setDailyToggles({ ...dailyToggles, [app.id]: !dailyToggles[app.id] })}
-                          className={cn(
-                            "w-full h-10 rounded-lg font-bold text-[10px] uppercase tracking-widest border",
-                            dailyToggles[app.id] ? "bg-teal-50 border-teal-500 text-teal-700" : "bg-white border-slate-200 text-slate-500"
-                          )}
-                        >
-                          {dailyToggles[app.id] ? "Active" : "Off"}
-                        </button>
-                      </div>
-                    </div>
+                    {scheduleTime && (
+                      <p className="mt-1 text-xs font-semibold text-primary">Turns on at {scheduleTime}</p>
+                    )}
                   </div>
-
-                  <div className="grid grid-cols-[1fr_auto] gap-2">
-                    <button
-                      onClick={() => handleRunNow(app.id)}
-                      disabled={startingIds.has(app.id)}
-                      className="h-11 bg-primary text-white rounded-lg font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-60"
-                    >
-                      <Zap size={14} fill="currentColor" /> {startingIds.has(app.id) ? "Starting..." : isRunning ? "Send Run Again" : "Run Now"}
-                    </button>
-                    <button
-                      onClick={() => handleDisconnect(app.id)}
-                      className="h-11 w-11 rounded-lg bg-white border border-slate-200 text-red-500 flex items-center justify-center hover:bg-red-50"
-                      title="Disconnect device"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => toggleQueue(app.id)}
-                    className="w-full h-10 rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200"
-                  >
-                    {hasCitySet ? "Update schedule" : "Choose city to schedule"}
-                  </button>
                 </motion.article>
               );
             })}
@@ -908,6 +860,9 @@ export default function Home() {
                       <div className="min-w-0">
                         <h3 className="font-bold text-slate-950 truncate">{app.name}</h3>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{isVirtual ? "Virtual" : `Node ${app.matter_node_id ?? "unknown"}`} | {status}</p>
+                        {scheduleTime && (
+                          <p className="mt-1 text-xs font-semibold text-primary">Turns on at {scheduleTime}</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2 shrink-0">
@@ -916,7 +871,7 @@ export default function Home() {
                         disabled={startingIds.has(app.id)}
                         className="h-10 px-3 rounded-lg bg-primary text-white font-bold text-[10px] uppercase tracking-widest disabled:opacity-60"
                       >
-                        {startingIds.has(app.id) ? "Starting" : "Run"}
+                        {startingIds.has(app.id) ? "Starting" : "Run now"}
                       </button>
                       <button
                         onClick={() => handleDisconnect(app.id)}
@@ -931,7 +886,7 @@ export default function Home() {
                     <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
                       <label className="space-y-1">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1">
-                          <Clock size={11} /> Deadline
+                          <Clock size={11} /> Must finish by
                         </span>
                         <input
                           type="time"
@@ -947,14 +902,7 @@ export default function Home() {
                         {scheduleTime ? "Update" : "Schedule run"}
                       </button>
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => toggleQueue(app.id)}
-                      className="mt-3 w-full h-9 rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200"
-                    >
-                      Choose city to schedule
-                    </button>
-                  )}
+                  ) : null}
                 </motion.article>
               );
             })}

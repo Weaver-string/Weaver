@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from main import ScheduleRequest, get_existing_schedules_for_request
+from main import ScheduleRequest, effective_duration_seconds, get_existing_schedules_for_request
 from EnergySchedulerApi.Models.appliance import Appliance
 from EnergySchedulerApi.Models.energy_price import EnergyPrice
 from EnergySchedulerApi.Models.household import Household
@@ -96,3 +96,9 @@ def test_grid_scheduler_skips_windows_that_exceed_house_limit() -> None:
     )
 
     assert start_time == base + timedelta(minutes=30)
+
+
+def test_unknown_runtime_defaults_to_one_hour() -> None:
+    assert effective_duration_seconds(None) == 3600
+    assert effective_duration_seconds(0) == 3600
+    assert effective_duration_seconds(2700) == 2700
