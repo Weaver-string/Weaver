@@ -47,13 +47,20 @@ export interface EnergyPricePayload extends JsonObject {
 }
 
 export async function fetchFromApi<T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
+  const apiBaseUrl = getApiBaseUrl();
+  let response: Response;
+
+  try {
+    response = await fetch(`${apiBaseUrl}${endpoint}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    });
+  } catch {
+    throw new Error(`Could not reach Weaver backend at ${apiBaseUrl}. Make sure Weaver is still running.`);
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: "Unknown error" }));

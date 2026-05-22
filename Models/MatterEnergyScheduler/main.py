@@ -475,7 +475,7 @@ async def schedule_grid_pv(request: ScheduleRequest):
         appliance = appliance_registry.get_appliance(request.appliance_id)
 
         # Use deadline override if provided, otherwise use appliance's deadline
-        deadline = request.deadline_override or appliance.deadline
+        deadline = to_naive_datetime(request.deadline_override or appliance.deadline)
 
         target_date = request.target_date or datetime.now().date()
         prices = await price_provider.get_day_ahead_prices(target_date, request.household)
@@ -534,7 +534,7 @@ async def schedule_grid_pv_bess(request: ScheduleRequest):
         appliance = appliance_registry.get_appliance(request.appliance_id)
 
         # Use deadline override if provided, otherwise use appliance's deadline
-        deadline = request.deadline_override or appliance.deadline
+        deadline = to_naive_datetime(request.deadline_override or appliance.deadline)
 
         target_date = request.target_date or datetime.now().date()
         prices = await price_provider.get_day_ahead_prices(target_date, request.household)
@@ -647,7 +647,7 @@ async def schedule_multi_appliance(
             appliance = appliance_registry.get_appliance(appliance_id)
 
             # Use deadline override if provided, otherwise use appliance's deadline
-            deadline = request.deadline_override or appliance.deadline
+            deadline = to_naive_datetime(request.deadline_override or appliance.deadline)
 
             # Create a temporary appliance with the deadline override
             temp_appliance = Appliance(

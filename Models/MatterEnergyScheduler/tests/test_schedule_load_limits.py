@@ -1,11 +1,14 @@
-from datetime import datetime, timedelta
+import asyncio
+from datetime import datetime, timedelta, timezone
 
+import main
 from main import ScheduleRequest, effective_duration_seconds, get_existing_schedules_for_request
 from EnergySchedulerApi.Models.appliance import Appliance
 from EnergySchedulerApi.Models.energy_price import EnergyPrice
 from EnergySchedulerApi.Models.household import Household
 from EnergySchedulerApi.Models.household_type import HouseholdType
 from EnergySchedulerApi.Models.scheduled_appliance import ScheduledAppliance
+from EnergySchedulerApi.Models.solar_production import SolarProduction
 from EnergySchedulerApi.Services.scheduling_strategies import GridOnlyScheduler
 
 
@@ -102,3 +105,53 @@ def test_unknown_runtime_defaults_to_one_hour() -> None:
     assert effective_duration_seconds(None) == 3600
     assert effective_duration_seconds(0) == 3600
     assert effective_duration_seconds(2700) == 2700
+
+
+def test_grid_pv_schedule_accepts_timezone_aware_deadline(monkeypatch) -> None:
+    base = datetime(2026, 5, 22, 8, 0)
+    appliance = Appliance(
+        id="target_appliance",
+        name="Target appliance",
+        power_usage_kw=1.0,
+        duration_seconds=2700,
+        deadline=base + timedelta(hours=6),
+        matter_device_id="matter_target",
+        matter_device_ip="127.0.0.1",
+    )
+    prices = [
+        EnergyPrice(start_time=base + timedelta(minutes=30 * i), price_per_kwh=0.1 + i)
+        for i in range(6)
+    ]
+    solar = [
+        SolarProduction(time=base + timedelta(minutes=30 * i), kw_produced=0.0)
+        for i in range(6)
+    ]
+
+    async def fake_prices(_target_date, _household):
+        return prices
+
+    async def fake_solar(_target_date, _household):
+        return solar
+
+    monkeypatch.setattr(main.appliance_registry, "get_appliance", lambda _id: appliance)
+    monkeypatch.setattr(main.price_provider, "get_day_ahead_prices", fake_prices)
+    monkeypatch.setattr(main.solar_provider, "get_forecast", fake_solar)
+    monkeypatch.setattr(main.db_service, "get_pending_schedules", lambda: [])
+    monkeypatch.setattr(main.background_runner, "schedule_appliance", lambda *args, **kwargs: "job-1")
+
+    request = ScheduleRequest(
+        appliance_id="target_appliance",
+        household=Household(
+            id="house_1",
+            household_type=HouseholdType.GRID_AND_PV,
+            bidding_zone="10YFR-RTE------C",
+            location_latitude=48.85341,
+            location_longitude=2.3488,
+            pv_capacity_kw=5.0,
+        ),
+        deadline_override=(base + timedelta(hours=4)).replace(tzinfo=timezone.utc),
+    )
+
+    result = asyncio.run(main.schedule_grid_pv(request))
+
+    assert result == {"start_time": base, "job_id": "job-1"}

@@ -430,8 +430,26 @@ export default function Home() {
     }
 
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const deadline = new Date(`${today}T${deadlines[id]}:00Z`);
+      const selectedDeadline = deadlines[id] || "23:00";
+      const [deadlineHour, deadlineMinute] = selectedDeadline.split(":").map(Number);
+      if (
+        Number.isNaN(deadlineHour) ||
+        Number.isNaN(deadlineMinute) ||
+        deadlineHour < 0 ||
+        deadlineHour > 23 ||
+        deadlineMinute < 0 ||
+        deadlineMinute > 59
+      ) {
+        toast.error("Choose a valid finish-by time.");
+        return;
+      }
+
+      const deadline = new Date();
+      deadline.setHours(deadlineHour, deadlineMinute, 0, 0);
+      if (deadline <= new Date()) {
+        deadline.setDate(deadline.getDate() + 1);
+      }
+
       const solarMode = householdType === "grid_and_pv";
       const schedulePayload = {
         appliance_id: id,
@@ -456,7 +474,7 @@ export default function Home() {
         toast.success(`Scheduled for ${new Date(runTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
       }
     } catch (error) {
-      console.error("Auto-sync schedule failed:", error);
+      toast.error(`Could not schedule run: ${getErrorMessage(error)}`);
     }
   };
 
