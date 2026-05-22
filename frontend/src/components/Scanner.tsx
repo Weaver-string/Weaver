@@ -19,9 +19,10 @@ export function Scanner({ onScan, onClose }: ScannerProps) {
 
   const submitCode = useCallback(async (code: string) => {
     const normalizedCode = code.trim();
+    const isVirtualTestCode = normalizedCode.toUpperCase() === "WEAVER-TEST-LOAD";
     const isMatterCode = normalizedCode.startsWith("MT:") || /^\d{11,21}$/.test(normalizedCode);
 
-    if (!isMatterCode) {
+    if (!isMatterCode && !isVirtualTestCode) {
       setStatus("error");
       setError("Enter an 11-21 digit setup code or an MT: QR payload.");
       return;
@@ -153,7 +154,6 @@ export function Scanner({ onScan, onClose }: ScannerProps) {
               className="w-full h-14 organic-card !rounded-lg pl-14 pr-5 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-primary transition-colors"
             />
           </div>
-
           {error && (
             <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />

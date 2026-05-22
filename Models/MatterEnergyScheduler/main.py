@@ -518,7 +518,7 @@ async def schedule_grid_pv(request: ScheduleRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/schedule/grid-pv-bess")
+@app.post("/schedule/grid-pv-bess", include_in_schema=False)
 async def schedule_grid_pv_bess(request: ScheduleRequest):
     """Schedule appliance for Grid + PV + BESS household (minimize cost, use stored energy)"""
     try:

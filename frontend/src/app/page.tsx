@@ -75,6 +75,7 @@ type ApplianceStatus = {
 
 const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : "Unknown error";
 const CITY_STORAGE_KEY = "weaver.selectedCity";
+const VIRTUAL_TEST_CODE = "WEAVER-TEST-LOAD";
 
 const SUPPORTED_COUNTRIES = [
   "IE", "GB", "FR", "DE", "ES", "IT", "BE", "NL", "PT", "DK", "NO", "SE", "FI", "AT", "CH", "PL", "CZ", "HU", "RO", "GR"
@@ -142,6 +143,8 @@ export default function Home() {
 
   const hasCitySet = Boolean(location && biddingZone);
   const cityDisplay = selectedCity || (hasCitySet ? ZONE_NAMES[biddingZone || ""] || "Selected city" : null);
+  const priceSourceLabel = currentPrice?.is_real ? "Live price" : "Estimated fallback price";
+  const isVirtualAppliance = (app: Appliance) => app.device_type === "virtual_load" || app.matter_device_id.startsWith("virtual_");
 
   async function fetchData() {
     try {
@@ -432,6 +435,32 @@ export default function Home() {
   const onScanSuccess = async (scannedData: string) => {
     try {
       const setupCode = scannedData.trim();
+      if (setupCode.toUpperCase() === VIRTUAL_TEST_CODE) {
+        const existingVirtual = appliances.find(isVirtualAppliance);
+        if (existingVirtual) {
+          toast.success(`${existingVirtual.name} is already connected`);
+          setIsScanning(false);
+          await fetchData();
+          return;
+        }
+
+        await weaverApi.registerAppliance({
+          name: "Virtual test load",
+          matter_device_id: "virtual_test_load",
+          matter_device_ip: "127.0.0.1",
+          matter_device_port: 1,
+          matter_node_id: null,
+          device_type: "virtual_load",
+          power_usage_kw: 0.8,
+          duration_seconds: 45 * 60,
+          deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        });
+        toast.success("Virtual test load added for scheduling");
+        await fetchData();
+        setIsScanning(false);
+        return;
+      }
+
       // Detection: Is it a real Matter commissioning code?
       const isMatterCode = setupCode.startsWith("MT:") || /^\d{11,21}$/.test(setupCode);
 
@@ -572,19 +601,21 @@ export default function Home() {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-[10px] font-bold uppercase tracking-widest text-teal-300">
-                    {currentPrice.is_real ? "Current price found" : "Simulation mode"}
+                    {priceSourceLabel}
                   </h3>
                   <span className={cn(
                     "px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wide",
                     currentPrice.is_real ? "bg-teal-500/20 text-teal-300" : "bg-amber-500/20 text-amber-300"
                   )}>
-                    {currentPrice.is_real ? "Live" : "Simulated"}
+                    {currentPrice.is_real ? "Live" : "Fallback"}
                   </span>
                 </div>
                 <p className="text-2xl font-bold tabular-nums">
                   {currentPrice.price_per_kwh.toFixed(2)}<span className="text-xs ml-1 opacity-60">EUR/kWh</span>
                 </p>
-                <p className="text-[9px] text-slate-400 uppercase font-bold mt-1">Live from {cityDisplay || "selected city"}</p>
+                <p className="text-[9px] text-slate-400 uppercase font-bold mt-1">
+                  {currentPrice.is_real ? "From" : "Estimated for"} {cityDisplay || "selected city"}
+                </p>
               </div>
             </div>
           </motion.div>
@@ -629,7 +660,7 @@ export default function Home() {
               </p>
               {currentPrice && (
                 <p className="mt-3 text-xs font-bold text-primary">
-                  Current price: {currentPrice.price_per_kwh.toFixed(3)} EUR/kWh
+                  {priceSourceLabel}: {currentPrice.price_per_kwh.toFixed(3)} EUR/kWh
                 </p>
               )}
             </button>
@@ -724,6 +755,7 @@ export default function Home() {
             )}
 
             {queueAppliances.map((app, index) => {
+              const isVirtual = isVirtualAppliance(app);
               const isRunning = runningIds.has(app.id);
               const scheduleTime = getScheduleTime(app.id);
               const hasSchedule = Boolean(getSchedule(app.id));
@@ -734,7 +766,9 @@ export default function Home() {
                   ? `Scheduled start: ${scheduleTime}`
                   : hasCitySet
                     ? "Ready for optimized scheduling."
-                    : "Ready for direct Matter control.";
+                    : isVirtual
+                      ? "Ready for scheduling tests."
+                      : "Ready for direct Matter control.";
 
               return (
                 <motion.article
@@ -758,7 +792,7 @@ export default function Home() {
                           <span className="text-[10px] font-bold text-slate-400 tabular-nums">#{index + 1}</span>
                           <h3 className="font-bold text-slate-950 truncate">{app.name}</h3>
                         </div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Matter node {app.matter_node_id ?? "unknown"}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{isVirtual ? "Virtual scheduling test" : `Matter node ${app.matter_node_id ?? "unknown"}`}</p>
                       </div>
                     </div>
                     <span className={cn(
@@ -803,10 +837,10 @@ export default function Home() {
                   <div className="grid grid-cols-[1fr_auto] gap-2">
                     <button
                       onClick={() => handleRunNow(app.id)}
-                      disabled={startingIds.has(app.id)}
+                      disabled={startingIds.has(app.id) || isVirtual}
                       className="h-11 bg-primary text-white rounded-lg font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-60"
                     >
-                      <Zap size={14} fill="currentColor" /> {startingIds.has(app.id) ? "Starting..." : isRunning ? "Send Run Again" : "Run Now"}
+                      <Zap size={14} fill="currentColor" /> {isVirtual ? "Schedule Only" : startingIds.has(app.id) ? "Starting..." : isRunning ? "Send Run Again" : "Run Now"}
                     </button>
                     <button
                       onClick={() => handleDisconnect(app.id)}
@@ -835,6 +869,7 @@ export default function Home() {
             </div>
 
             {connectedAppliances.map((app) => {
+              const isVirtual = isVirtualAppliance(app);
               const isRunning = runningIds.has(app.id);
               const scheduleTime = getScheduleTime(app.id);
               const status = isRunning ? "Running" : scheduleTime ? `Starts ${scheduleTime}` : "Idle";
@@ -851,16 +886,16 @@ export default function Home() {
                       </div>
                       <div className="min-w-0">
                         <h3 className="font-bold text-slate-950 truncate">{app.name}</h3>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Node {app.matter_node_id ?? "unknown"} | {status}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{isVirtual ? "Virtual" : `Node ${app.matter_node_id ?? "unknown"}`} | {status}</p>
                       </div>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <button
                         onClick={() => handleRunNow(app.id)}
-                        disabled={startingIds.has(app.id)}
+                        disabled={startingIds.has(app.id) || isVirtual}
                         className="h-10 px-3 rounded-lg bg-primary text-white font-bold text-[10px] uppercase tracking-widest disabled:opacity-60"
                       >
-                        {startingIds.has(app.id) ? "Starting" : "Run"}
+                        {isVirtual ? "Test" : startingIds.has(app.id) ? "Starting" : "Run"}
                       </button>
                       <button
                         onClick={() => handleDisconnect(app.id)}
