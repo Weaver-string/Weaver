@@ -76,6 +76,7 @@ type ApplianceStatus = {
 const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : "Unknown error";
 const CITY_STORAGE_KEY = "weaver.selectedCity";
 const VIRTUAL_TEST_CODE = "WEAVER-TEST-LOAD";
+const DEFAULT_FINISH_BY = "23:00";
 
 const SUPPORTED_COUNTRIES = [
   "IE", "GB", "FR", "DE", "ES", "IT", "BE", "NL", "PT", "DK", "NO", "SE", "FI", "AT", "CH", "PL", "CZ", "HU", "RO", "GR"
@@ -430,7 +431,7 @@ export default function Home() {
     }
 
     try {
-      const selectedDeadline = deadlines[id] || "23:00";
+      const selectedDeadline = deadlines[id] || DEFAULT_FINISH_BY;
       const [deadlineHour, deadlineMinute] = selectedDeadline.split(":").map(Number);
       if (
         Number.isNaN(deadlineHour) ||
@@ -908,7 +909,7 @@ export default function Home() {
                         </span>
                         <input
                           type="time"
-                          value={deadlines[app.id]}
+                          value={deadlines[app.id] ?? DEFAULT_FINISH_BY}
                           onChange={(e) => setDeadlines({ ...deadlines, [app.id]: e.target.value })}
                           className="w-full h-10 px-3 rounded-lg bg-white border border-slate-200 focus:border-primary font-semibold text-slate-800 outline-none"
                         />
