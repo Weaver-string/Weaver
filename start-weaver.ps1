@@ -28,7 +28,7 @@ if ($env:WEAVER_START_LOCAL_MATTER_SERVER -eq "1") {
   & (Join-Path $root "start-matter-server.ps1")
 } else {
   Write-Host "Skipping local Matter Server startup. Native Windows Matter Server support is not available with the current CHIP dependency."
-  Write-Host "Set MATTER_SERVER_WS_URL if you have Matter Server running on Home Assistant or a Raspberry Pi."
+  Write-Host "Set MATTER_SERVER_WS_URL if you have Matter Server running on a Raspberry Pi."
 }
 
 if (-not $env:MATTER_SERVER_WS_URL) {

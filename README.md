@@ -1,6 +1,6 @@
 # Weaver
 
-Weaver is a local-first smart energy scheduler for Matter appliances, designed to pair with a Matter Server running on Home Assistant or a Raspberry Pi.
+Weaver is a local-first smart energy scheduler for Matter appliances, designed to pair with a Matter Server running on a Raspberry Pi.
 
 It runs inside the user's home network, connects to a Matter controller over WebSocket, and schedules flexible appliances around grid prices and optional solar production.
 
@@ -49,18 +49,18 @@ Stop Weaver.vbs                    Double-click local stop helper
 - Windows 10/11 for the Weaver UI/backend
 - Node.js 20+
 - Python 3.12 or 3.13, installed from python.org with `Add python.exe to PATH` enabled
-- Home Assistant or a Raspberry Pi running Matter Server for real appliance commissioning/control
+- Raspberry Pi running Matter Server for real appliance commissioning/control
 - A Matter appliance that can be put into pairing mode
 - The Weaver machine, Matter Server host, and Matter appliance on the same home network
 
 ## Before You Try It
 
-Weaver is an early local app for testing Matter appliance scheduling. It is best suited for people who already run Home Assistant or a Raspberry Pi at home and are comfortable trying software that may need troubleshooting.
+Weaver is an early local app for testing Matter appliance scheduling. It is best suited for people who can run a Raspberry Pi at home and are comfortable trying software that may need troubleshooting.
 
 Useful feedback includes:
 
 - Whether install and startup worked on your machine.
-- Whether Weaver could connect through your Home Assistant or Raspberry Pi Matter Server.
+- Whether Weaver could connect through your Raspberry Pi Matter Server.
 - What appliance type, brand, and model you tested.
 - Any error messages from the PowerShell windows or the app.
 - Places where the setup instructions were confusing.
@@ -104,7 +104,7 @@ Put the Matter appliance into pairing mode, click Connect Device in Weaver, and 
 For real appliances, set Weaver's Matter Server URL before starting it:
 
 ```powershell
-$env:MATTER_SERVER_WS_URL="ws://YOUR_HOME_ASSISTANT_OR_PI_IP:5580/ws"
+$env:MATTER_SERVER_WS_URL="ws://RASPBERRY_PI_IP:5580/ws"
 .\start-weaver.ps1
 ```
 
@@ -145,31 +145,31 @@ Matter commissioning and control are local-network operations. The machine runni
 
 For Raspberry Pi setup, see [RASPBERRY_PI_MATTER_SERVER.md](RASPBERRY_PI_MATTER_SERVER.md).
 
-Weaver talks to a Matter Server over WebSocket. The intended real-appliance setup is a Matter Server running on Home Assistant or a Raspberry Pi, with Weaver connecting to it from the same home network.
+Weaver talks to a Matter Server over WebSocket. The intended real-appliance setup is a Matter Server running on a Raspberry Pi, with Weaver connecting to it from the same home network.
 
-The backend includes the same open-source Matter Server client package used by Home Assistant:
+The backend includes the open-source Python Matter Server client package:
 
 ```text
 python-matter-server
 ```
 
-Native Windows startup of the Python Matter Server is not currently available because the upstream CHIP core package does not publish Windows builds. Weaver therefore focuses on Home Assistant and Raspberry Pi Matter Server hosts for real appliance commissioning and control.
+Native Windows startup of the Python Matter Server is not currently available because the upstream CHIP core package does not publish Windows builds. Weaver therefore focuses on Raspberry Pi Matter Server hosts for real appliance commissioning and control.
 
 The local architecture is:
 
 ```text
 Weaver UI
   -> Weaver FastAPI backend
-    -> Home Assistant Matter Server
+    -> Raspberry Pi Matter Server
       -> Matter appliance
 ```
 
 The Matter Server handles the low-level Matter protocol work: discovery, secure commissioning, fabric credentials, node storage, secure sessions, and Matter cluster commands. Weaver handles the user experience, scheduling, and optimization decisions.
 
-Set `MATTER_SERVER_WS_URL` to your Home Assistant or Raspberry Pi Matter Server:
+Set `MATTER_SERVER_WS_URL` to your Raspberry Pi Matter Server:
 
 ```text
-ws://YOUR_HOME_ASSISTANT_OR_PI_IP:5580/ws
+ws://RASPBERRY_PI_IP:5580/ws
 ```
 
 If `MATTER_SERVER_WS_URL` is not set, Weaver falls back to this local development address:
@@ -188,7 +188,7 @@ This local state is not committed to Git.
 
 ## Pairing a Matter Appliance
 
-1. Make sure Home Assistant or the Raspberry Pi Matter Server is running.
+1. Make sure the Raspberry Pi Matter Server is running.
 2. Make sure the Weaver machine, Matter Server host, and Matter appliance are on the same home network.
 3. Set `MATTER_SERVER_WS_URL` to the Matter Server WebSocket URL before starting Weaver.
 4. Put the appliance into pairing mode.

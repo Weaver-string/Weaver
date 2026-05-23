@@ -22,12 +22,12 @@ try {
 }
 
 if (-not (Test-Path $matterServer)) {
-  Write-Error "Local Matter Server is not installed. Native Windows Matter Server support is not available because the upstream CHIP core package does not publish Windows builds. Use Matter Server on Home Assistant or a Raspberry Pi and set MATTER_SERVER_WS_URL."
+  Write-Error "Local Matter Server is not installed. Native Windows Matter Server support is not available because the upstream CHIP core package does not publish Windows builds. Use Matter Server on a Raspberry Pi and set MATTER_SERVER_WS_URL."
 }
 
 & $python -c "import chip.exceptions" 2>$null
 if ($LASTEXITCODE -ne 0) {
-  Write-Error "Local Matter Server cannot start because chip.exceptions is unavailable. Native Windows Matter Server support is not available because the upstream CHIP core package does not publish Windows builds. Use Matter Server on Home Assistant or a Raspberry Pi and set MATTER_SERVER_WS_URL."
+  Write-Error "Local Matter Server cannot start because chip.exceptions is unavailable. Native Windows Matter Server support is not available because the upstream CHIP core package does not publish Windows builds. Use Matter Server on a Raspberry Pi and set MATTER_SERVER_WS_URL."
 }
 
 $existing = Get-NetTCPConnection -LocalPort 5580 -ErrorAction SilentlyContinue |
