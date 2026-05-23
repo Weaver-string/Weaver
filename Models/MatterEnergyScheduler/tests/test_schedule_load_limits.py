@@ -121,16 +121,16 @@ def test_grid_pv_schedule_accepts_timezone_aware_deadline(monkeypatch) -> None:
         matter_device_id="matter_target",
         matter_device_ip="127.0.0.1",
     )
-    prices = [
-        EnergyPrice(start_time=base + timedelta(minutes=30 * i), price_per_kwh=0.1 + i)
-        for i in range(6)
-    ]
-    solar = [
-        SolarProduction(time=base + timedelta(minutes=30 * i), kw_produced=0.0)
-        for i in range(6)
-    ]
+    day_start = base.replace(hour=0, minute=0)
+    prices = []
+    solar = []
+    for i in range(48):
+        start_time = day_start + timedelta(minutes=30 * i)
+        is_base_window = start_time in {base, base + timedelta(minutes=30)}
+        prices.append(EnergyPrice(start_time=start_time, price_per_kwh=0.01 if is_base_window else 10.0))
+        solar.append(SolarProduction(time=start_time, kw_produced=0.0))
 
-    async def fake_prices(_target_date, _household):
+    async def fake_prices(_target_date, _household, _lat=None, _lng=None):
         return prices
 
     async def fake_solar(_target_date, _household):

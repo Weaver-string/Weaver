@@ -82,6 +82,23 @@ class EntsoePriceProvider:
         """Get cache file path for a specific date and bidding zone"""
         return self.CACHE_DIR / f"prices_{bidding_zone}_{target_date.isoformat()}.json"
 
+    def _resolve_bidding_zone(
+        self,
+        household: Optional[Any] = None,
+        lat: Optional[float] = None,
+        lng: Optional[float] = None,
+    ) -> Optional[str]:
+        bidding_zone = None
+
+        if lat is not None and lng is not None:
+            from ..Services.location_service import LocationService
+            bidding_zone = LocationService.get_bidding_zone_from_coords(lat, lng)
+
+        if not bidding_zone and household and hasattr(household, 'bidding_zone'):
+            bidding_zone = household.bidding_zone
+
+        return bidding_zone
+
     def _to_naive(self, value: datetime) -> datetime:
         if value.tzinfo is None:
             return value
@@ -180,6 +197,30 @@ class EntsoePriceProvider:
 
         return prices
 
+    def _merge_missing_price_windows(
+        self,
+        prices: List[EnergyPrice],
+        target_date: date,
+        bidding_zone: str,
+    ) -> List[EnergyPrice]:
+        """Keep provided prices and fill missing hourly windows with fallback prices."""
+        by_start_time = {
+            self._to_naive(price.start_time).replace(second=0, microsecond=0): EnergyPrice(
+                start_time=self._to_naive(price.start_time).replace(second=0, microsecond=0),
+                price_per_kwh=price.price_per_kwh,
+                is_real=price.is_real,
+            )
+            for price in prices
+            if self._to_naive(price.start_time).date() == target_date
+        }
+
+        for fallback in self._generate_fallback_prices(target_date, bidding_zone):
+            fallback_time = fallback.start_time.replace(second=0, microsecond=0)
+            if fallback_time not in by_start_time:
+                by_start_time[fallback_time] = fallback
+
+        return sorted(by_start_time.values(), key=lambda price: price.start_time)
+
     def _get_fallback_prices(self, target_date: date, bidding_zone: str) -> List[EnergyPrice]:
         """Prefer real cached data shifted to the target date, then synthetic fallback prices."""
         cached_today = self._load_prices_from_cache(target_date, bidding_zone)
@@ -208,21 +249,46 @@ class EntsoePriceProvider:
 
         logger.warning("Using generated fallback prices for %s/%s", bidding_zone, target_date)
         return self._generate_fallback_prices(target_date, bidding_zone)
+
+    async def get_prices_for_window(
+        self,
+        start_time: datetime,
+        deadline: datetime,
+        household: Optional[Any] = None,
+        lat: Optional[float] = None,
+        lng: Optional[float] = None,
+    ) -> List[EnergyPrice]:
+        """Return prices from the start date through deadline, filling missing hours."""
+        bidding_zone = self._resolve_bidding_zone(household, lat, lng)
+        if not bidding_zone:
+            logger.debug("No bidding zone provided for schedule price window.")
+            return []
+
+        start_time = self._to_naive(start_time)
+        deadline = self._to_naive(deadline)
+        prices: List[EnergyPrice] = []
+
+        current_date = start_time.date()
+        while current_date <= deadline.date():
+            day_prices = await self.get_day_ahead_prices(current_date, household, lat, lng)
+            merged_prices = self._merge_missing_price_windows(day_prices, current_date, bidding_zone)
+            prices.extend(merged_prices)
+            current_date += timedelta(days=1)
+
+        return sorted(
+            [
+                price for price in prices
+                if start_time.replace(minute=0, second=0, microsecond=0) <= price.start_time < deadline
+            ],
+            key=lambda price: price.start_time,
+        )
     
     async def get_day_ahead_prices(self, target_date: date, household: Optional[Any] = None, lat: Optional[float] = None, lng: Optional[float] = None) -> List[EnergyPrice]:
         """
         Fetch day-ahead prices for a specific bidding zone.
         """
         # 1. Determine bidding zone
-        bidding_zone = None
-        
-        # Priority: Direct coordinates (if possible to map) > Household object
-        if lat is not None and lng is not None:
-            from ..Services.location_service import LocationService
-            bidding_zone = LocationService.get_bidding_zone_from_coords(lat, lng)
-        
-        if not bidding_zone and household and hasattr(household, 'bidding_zone'):
-            bidding_zone = household.bidding_zone
+        bidding_zone = self._resolve_bidding_zone(household, lat, lng)
             
         if not bidding_zone:
             # If no zone is found and no household is provided, we can't fetch official prices.

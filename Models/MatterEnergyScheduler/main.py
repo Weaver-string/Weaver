@@ -140,6 +140,34 @@ def get_existing_schedules_for_request(request) -> List[ScheduledAppliance]:
     return existing
 
 
+async def get_prices_for_schedule(request, deadline: datetime) -> List[EnergyPrice]:
+    start_time = datetime.combine(request.target_date, datetime.min.time()) if request.target_date else datetime.now()
+    return await price_provider.get_prices_for_window(start_time, deadline, request.household)
+
+
+async def get_solar_for_schedule(request, deadline: datetime) -> list:
+    start_date = request.target_date or datetime.now().date()
+    current_date = start_date
+    solar = []
+    while current_date <= deadline.date():
+        solar.extend(await solar_provider.get_forecast(current_date, request.household))
+        current_date += timedelta(days=1)
+    return solar
+
+
+async def get_prices_for_household_window(household: Household, start_time: datetime, deadline: datetime) -> List[EnergyPrice]:
+    return await price_provider.get_prices_for_window(start_time, deadline, household)
+
+
+async def get_solar_for_household_window(household: Household, start_time: datetime, deadline: datetime) -> list:
+    current_date = start_time.date()
+    solar = []
+    while current_date <= deadline.date():
+        solar.extend(await solar_provider.get_forecast(current_date, household))
+        current_date += timedelta(days=1)
+    return solar
+
+
 @app.get("/", include_in_schema=False)
 async def root():
     return RedirectResponse(url="/docs")
@@ -425,8 +453,7 @@ async def schedule_grid_only(request: ScheduleRequest):
         # Use deadline override if provided, otherwise use appliance's deadline
         deadline = to_naive_datetime(request.deadline_override or appliance.deadline)
 
-        target_date = request.target_date or datetime.now().date()
-        prices = await price_provider.get_day_ahead_prices(target_date, request.household)
+        prices = await get_prices_for_schedule(request, deadline)
 
         # Create a temporary appliance with the deadline override
         temp_appliance = Appliance(
@@ -477,12 +504,8 @@ async def schedule_grid_pv(request: ScheduleRequest):
         # Use deadline override if provided, otherwise use appliance's deadline
         deadline = to_naive_datetime(request.deadline_override or appliance.deadline)
 
-        target_date = request.target_date or datetime.now().date()
-        prices = await price_provider.get_day_ahead_prices(target_date, request.household)
-        solar = await solar_provider.get_forecast(
-            target_date,
-            request.household
-        )
+        prices = await get_prices_for_schedule(request, deadline)
+        solar = await get_solar_for_schedule(request, deadline)
 
         # Create a temporary appliance with the deadline override
         temp_appliance = Appliance(
@@ -536,12 +559,8 @@ async def schedule_grid_pv_bess(request: ScheduleRequest):
         # Use deadline override if provided, otherwise use appliance's deadline
         deadline = to_naive_datetime(request.deadline_override or appliance.deadline)
 
-        target_date = request.target_date or datetime.now().date()
-        prices = await price_provider.get_day_ahead_prices(target_date, request.household)
-        solar = await solar_provider.get_forecast(
-            target_date,
-            request.household
-        )
+        prices = await get_prices_for_schedule(request, deadline)
+        solar = await get_solar_for_schedule(request, deadline)
 
         bess_min_soc = (
             request.household.bess_capacity_kwh *
@@ -595,12 +614,10 @@ async def schedule_grid_pv_bess(request: ScheduleRequest):
 async def schedule_water_heater(request: WaterHeaterScheduleRequest):
     """Schedule a flexible water heater to use cheap electricity and solar."""
     try:
-        target_date = request.target_date or datetime.now().date()
-        prices = await price_provider.get_day_ahead_prices(target_date, request.household)
-        solar = await solar_provider.get_forecast(
-            target_date,
-            request.household
-        )
+        water_heater_deadline = to_naive_datetime(request.water_heater.deadline)
+        window_start = datetime.combine(request.target_date, datetime.min.time()) if request.target_date else datetime.now()
+        prices = await get_prices_for_household_window(request.household, window_start, water_heater_deadline)
+        solar = await get_solar_for_household_window(request.household, window_start, water_heater_deadline)
 
         bess_min_soc = (
             request.household.bess_capacity_kwh *
@@ -665,12 +682,10 @@ async def schedule_multi_appliance(
             )
             appliances.append(temp_appliance)
 
-        target_date = request.target_date or datetime.now().date()
-        prices = await price_provider.get_day_ahead_prices(target_date, request.household)
-        solar = await solar_provider.get_forecast(
-            target_date,
-            request.household
-        )
+        schedule_deadline = max(appliance.deadline for appliance in appliances)
+        window_start = datetime.combine(request.target_date, datetime.min.time()) if request.target_date else datetime.now()
+        prices = await get_prices_for_household_window(request.household, window_start, schedule_deadline)
+        solar = await get_solar_for_household_window(request.household, window_start, schedule_deadline)
 
         household_type = request.household.household_type.value.lower().replace('_', '-')
 
