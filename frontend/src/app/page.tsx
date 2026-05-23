@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Layers, Plus, Signal, RefreshCcw, MapPin, AlertCircle, Clock, Search, Zap, X, Sun, Info } from "lucide-react";
+import { Layers, Plus, Signal, RefreshCcw, MapPin, AlertCircle, Clock, Search, Zap, X, Sun, Info, Unplug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { weaverApi } from "@/lib/api";
 import { Scanner } from "@/components/Scanner";
@@ -900,13 +900,6 @@ export default function Home() {
                       >
                         {startingIds.has(app.id) ? "Starting" : "Run now"}
                       </button>
-                      <button
-                        onClick={() => handleDisconnect(app.id)}
-                        className="h-10 w-10 rounded-lg bg-white border border-slate-200 text-red-500 flex items-center justify-center hover:bg-red-50"
-                        title="Disconnect device"
-                      >
-                        <X size={17} />
-                      </button>
                     </div>
                   </div>
                   {hasCitySet ? (
@@ -931,6 +924,15 @@ export default function Home() {
                       </button>
                     </div>
                   ) : null}
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex justify-end">
+                    <button
+                      onClick={() => handleDisconnect(app.id)}
+                      className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-red-600"
+                    >
+                      <Unplug size={13} />
+                      Disconnect appliance
+                    </button>
+                  </div>
                 </motion.article>
               );
             })}
