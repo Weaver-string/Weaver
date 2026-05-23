@@ -143,6 +143,8 @@ To also remove local Weaver app data:
 
 Matter commissioning and control are local-network operations. The machine running Weaver should be on the same home network as the Matter appliance.
 
+For Raspberry Pi setup, see [RASPBERRY_PI_MATTER_SERVER.md](RASPBERRY_PI_MATTER_SERVER.md).
+
 Weaver talks to a Matter Server over WebSocket. The intended real-appliance setup is a Matter Server running on Home Assistant or a Raspberry Pi, with Weaver connecting to it from the same home network.
 
 The backend includes the same open-source Matter Server client package used by Home Assistant:
