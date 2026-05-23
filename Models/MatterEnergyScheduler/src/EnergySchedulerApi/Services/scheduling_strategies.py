@@ -12,9 +12,16 @@ class SchedulerBase:
     INTERVAL_HOURS = 0.5
     HOUSE_LIMIT_KW = 11.0
 
-    def _align_to_interval(self, dt: datetime) -> datetime:
-        minute = 30 if dt.minute >= 30 else 0
-        return dt.replace(minute=minute, second=0, microsecond=0)
+    def _now(self) -> datetime:
+        return datetime.now()
+
+    def _next_interval_start(self, dt: datetime) -> datetime:
+        aligned = dt.replace(second=0, microsecond=0)
+        if aligned.minute == 0 and dt == aligned:
+            return aligned
+        if aligned.minute < 30:
+            return aligned.replace(minute=30)
+        return (aligned.replace(minute=0) + timedelta(hours=1))
 
     def _window_fits_load(
         self,
@@ -50,7 +57,7 @@ class SchedulerBase:
         candidate_kw: float,
         search_start: Optional[datetime] = None
     ) -> Optional[datetime]:
-        start_time = self._align_to_interval(search_start or datetime.now())
+        start_time = self._next_interval_start(search_start or self._now())
         num_intervals = max(1, ceil(duration_hours / self.INTERVAL_HOURS))
         interval_length = timedelta(hours=self.INTERVAL_HOURS)
 
@@ -68,7 +75,7 @@ class SchedulerBase:
         house_limit_kw: float,
         candidate_kw: float
     ) -> datetime:
-        now = datetime.now()
+        now = self._now()
         earliest = self._find_first_feasible_start(
             appliance_duration_hours,
             deadline,
@@ -99,9 +106,12 @@ class GridOnlyScheduler(SchedulerBase):
         optimal_start = None
 
         if prices:
+            earliest_start = self._next_interval_start(self._now())
             for i in range(len(prices) - num_intervals + 1):
                 start_time = prices[i].start_time
                 end_time = start_time + timedelta(hours=num_intervals * self.INTERVAL_HOURS)
+                if start_time < earliest_start:
+                    continue
                 if end_time > appliance.deadline:
                     continue
                 if not self._window_fits_load(start_time, num_intervals, appliance.power_usage_kw, existing_schedules, house_limit_kw):
@@ -134,10 +144,11 @@ class GridOnlyScheduler(SchedulerBase):
         intervals_needed = max(1, ceil(appliance.duration_seconds / (self.INTERVAL_HOURS * 3600)))
         
         valid_intervals = []
+        earliest_start = self._next_interval_start(self._now())
         for p in prices:
             if p.start_time + timedelta(hours=self.INTERVAL_HOURS) > appliance.deadline:
                 continue
-            if p.start_time < datetime.now():
+            if p.start_time < earliest_start:
                 continue
             
             # Check load limit for this specific 30m block
@@ -179,9 +190,12 @@ class GridAndPvScheduler(SchedulerBase):
         optimal_start = None
 
         if prices:
+            earliest_start = self._next_interval_start(self._now())
             for i in range(len(prices) - num_intervals + 1):
                 start_time = prices[i].start_time
                 end_time = start_time + timedelta(hours=num_intervals * self.INTERVAL_HOURS)
+                if start_time < earliest_start:
+                    continue
                 if end_time > appliance.deadline:
                     continue
                 if not self._window_fits_load(start_time, num_intervals, appliance.power_usage_kw, existing_schedules, house_limit_kw):
@@ -234,9 +248,12 @@ class GridPvAndBessScheduler(SchedulerBase):
         optimal_start = None
 
         if prices:
+            earliest_start = self._next_interval_start(self._now())
             for i in range(len(prices) - num_intervals + 1):
                 start_time = prices[i].start_time
                 end_time = start_time + timedelta(hours=num_intervals * self.INTERVAL_HOURS)
+                if start_time < earliest_start:
+                    continue
                 if end_time > appliance.deadline:
                     continue
                 if not self._window_fits_load(start_time, num_intervals, appliance.power_usage_kw, existing_schedules, house_limit_kw):

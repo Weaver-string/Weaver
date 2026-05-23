@@ -119,6 +119,7 @@ export default function Home() {
   const [runningIds, setRunningIds] = useState<Set<string>>(new Set());
   const [virtualRunningIds, setVirtualRunningIds] = useState<Set<string>>(new Set());
   const [startingIds, setStartingIds] = useState<Set<string>>(new Set());
+  const [schedulingIds, setSchedulingIds] = useState<Set<string>>(new Set());
 
   // Debug schedules
   useEffect(() => {
@@ -430,6 +431,7 @@ export default function Home() {
       return;
     }
 
+    setSchedulingIds(prev => new Set(prev).add(id));
     try {
       const selectedDeadline = deadlines[id] || DEFAULT_FINISH_BY;
       const [deadlineHour, deadlineMinute] = selectedDeadline.split(":").map(Number);
@@ -476,6 +478,12 @@ export default function Home() {
       }
     } catch (error) {
       toast.error(`Could not schedule run: ${getErrorMessage(error)}`);
+    } finally {
+      setSchedulingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -916,9 +924,10 @@ export default function Home() {
                       </label>
                       <button
                         onClick={() => toggleQueue(app.id)}
-                        className="self-end h-10 px-4 rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200"
+                        disabled={schedulingIds.has(app.id)}
+                        className="self-end h-10 px-4 rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200 disabled:opacity-60"
                       >
-                        {scheduleTime ? "Update" : "Schedule run"}
+                        {schedulingIds.has(app.id) ? "Scheduling" : scheduleTime ? "Update" : "Schedule run"}
                       </button>
                     </div>
                   ) : null}

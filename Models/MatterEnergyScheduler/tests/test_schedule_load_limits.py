@@ -67,7 +67,7 @@ def test_existing_schedules_include_other_pending_jobs(monkeypatch) -> None:
 
 
 def test_grid_scheduler_skips_windows_that_exceed_house_limit() -> None:
-    base = datetime(2026, 5, 22, 8, 0)
+    base = (datetime.now() + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
     appliance = Appliance(
         id="target_appliance",
         name="Target appliance",
@@ -91,7 +91,10 @@ def test_grid_scheduler_skips_windows_that_exceed_house_limit() -> None:
         )
     ]
 
-    start_time = GridOnlyScheduler().calculate_optimal_start_time(
+    scheduler = GridOnlyScheduler()
+    scheduler._now = lambda: base - timedelta(hours=1)  # type: ignore[method-assign]
+
+    start_time = scheduler.calculate_optimal_start_time(
         appliance,
         prices,
         existing_schedules=existing,
@@ -108,7 +111,7 @@ def test_unknown_runtime_defaults_to_one_hour() -> None:
 
 
 def test_grid_pv_schedule_accepts_timezone_aware_deadline(monkeypatch) -> None:
-    base = datetime(2026, 5, 22, 8, 0)
+    base = (datetime.now() + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
     appliance = Appliance(
         id="target_appliance",
         name="Target appliance",
@@ -138,6 +141,7 @@ def test_grid_pv_schedule_accepts_timezone_aware_deadline(monkeypatch) -> None:
     monkeypatch.setattr(main.solar_provider, "get_forecast", fake_solar)
     monkeypatch.setattr(main.db_service, "get_pending_schedules", lambda: [])
     monkeypatch.setattr(main.background_runner, "schedule_appliance", lambda *args, **kwargs: "job-1")
+    monkeypatch.setattr(main.grid_pv_scheduler, "_now", lambda: base - timedelta(hours=1))
 
     request = ScheduleRequest(
         appliance_id="target_appliance",
