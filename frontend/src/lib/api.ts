@@ -40,12 +40,6 @@ export interface HouseholdPayload extends JsonObject {
   pv_capacity_kw?: number;
 }
 
-export interface EnergyPricePayload extends JsonObject {
-  start_time: string;
-  price_per_kwh: number;
-  is_real: boolean;
-}
-
 export async function fetchFromApi<T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const apiBaseUrl = getApiBaseUrl();
   let response: Response;
@@ -102,11 +96,6 @@ export const weaverApi = {
   // Market/Prices
   getCurrentPrice: (zone: string, lat?: number, lng?: number) => 
     fetchFromApi(`/prices/current/${zone}?lat=${lat || ""}&lng=${lng || ""}`),
-  syncPrices: (zone: string, prices: EnergyPricePayload[]) => 
-    fetchFromApi(`/prices/sync/${zone}`, {
-      method: "POST",
-      body: JSON.stringify(prices),
-    }),
 
   // Household
   getHousehold: (id: string) => fetchFromApi(`/households/${id}`),

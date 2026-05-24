@@ -42,7 +42,7 @@ Three scheduling strategies for different energy configurations:
 - Used for: Grid + PV + BESS households
 
 #### 4. **API Integrations**
-- **ENTSO-E Provider**: Real Irish day-ahead prices (XML parsing)
+- **ENTSO-E Provider**: Live day-ahead electricity prices (XML parsing)
 - **Open-Meteo Provider**: Real solar irradiance forecasts
 - **Mock Providers**: For testing without API keys
 
@@ -203,7 +203,7 @@ Can use for appliance: 10 - 2.7 = 7.3 kWh
 
 ## Real API Integration Instructions
 
-### ENTSO-E (Ireland Day-Ahead Prices)
+### ENTSO-E (Day-Ahead Electricity Prices)
 1. Register: https://www.entsoe.eu/
 2. Create API token in ENTSO-E platform
 3. Update `main.py`:

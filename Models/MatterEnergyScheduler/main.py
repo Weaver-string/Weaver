@@ -749,16 +749,6 @@ async def get_current_price(bidding_zone: str, lat: Optional[float] = None, lng:
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
-@app.post("/prices/sync/{bidding_zone}")
-async def sync_prices(bidding_zone: str, prices: List[EnergyPrice]):
-    """Receive prices from frontend to ensure backend has real data even if its DNS is failing"""
-    try:
-        db_service.save_energy_prices(bidding_zone, prices)
-        return {"status": "synced", "count": len(prices)}
-    except Exception as e:
-        logger.error(f"Failed to sync prices: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/matter/devices")
 async def register_matter_device(request: MatterDeviceRegistrationRequest):
     try:

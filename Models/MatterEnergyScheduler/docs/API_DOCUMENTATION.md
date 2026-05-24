@@ -198,10 +198,10 @@ kw_produced: float       # Expected production in kW
 ## API Integration Notes
 
 ### Real Price Data (ENTSO-E) ✓ IMPLEMENTED
-Real Irish day-ahead prices are now integrated using your ENTSO-E API token:
-- Token: `dda12809-fde2-4828-afe0-ac84ef1ee62a`
+Live day-ahead prices are integrated through the ENTSO-E Transparency API:
+- API Token: provide `ENTSOE_API_KEY` in the local backend `.env`
 - Data Source: ENTSO-E Transparency API
-- Coverage: Ireland bidding zone (10IEA-TRAN------M)
+- Coverage: supported ENTSO-E bidding zones
 - Update Frequency: Daily at 13:00 UTC (day-ahead prices)
 - Price Format: EUR/kWh (converted from EUR/MWh)
 
@@ -274,5 +274,5 @@ curl -X POST "http://localhost:8000/schedule/grid-only" \
 1. **Database Integration** - Store schedules, appliances, household configs
 2. **Matter Protocol** - Implement device control and status monitoring
 3. **Frontend UI** - Web page for setting deadlines and viewing schedules
-4. **Real API Integration** - ENTSO-E and Open-Meteo with proper error handling
+4. **Real API Integration** - ENTSO-E prices and Open-Meteo solar forecasts with proper error handling
 5. **Advanced Features** - Machine learning forecasts, multi-appliance coordination
