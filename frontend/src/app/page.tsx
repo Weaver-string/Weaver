@@ -569,7 +569,9 @@ export default function Home() {
     return a.name.localeCompare(b.name);
   }).filter((app) => isApplianceRunning(app) || Boolean(getSchedule(app.id)));
 
-  const connectedAppliances = [...appliances].sort((a, b) => {
+  const connectedAppliances = [...appliances].filter((app) => {
+    return !isApplianceRunning(app) && !Boolean(getSchedule(app.id));
+  }).sort((a, b) => {
     const aRunning = isApplianceRunning(a);
     const bRunning = isApplianceRunning(b);
     if (aRunning !== bRunning) return aRunning ? -1 : 1;
