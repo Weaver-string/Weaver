@@ -74,6 +74,12 @@ type ApplianceStatus = {
   state: string;
 };
 
+type DeadlineOption = {
+  value: string;
+  label: string;
+  time: string;
+};
+
 const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : "Unknown error";
 const getApplianceSchedules = (jobs: ScheduleJob[], devices: Appliance[]) => {
   const applianceIds = new Set(devices.map((device) => String(device.id)));
@@ -86,6 +92,7 @@ const formatEnergyPrice = (price: number) => {
 const CITY_STORAGE_KEY = "weaver.selectedCity";
 const VIRTUAL_TEST_CODE = "WEAVER-TEST-LOAD";
 const DEFAULT_FINISH_BY = "23:00";
+const DEADLINE_OPTION_COUNT = 48;
 
 const SUPPORTED_COUNTRIES = [
   "IE", "GB", "FR", "DE", "ES", "IT", "BE", "NL", "PT", "DK", "NO", "SE", "FI", "AT", "CH", "PL", "CZ", "HU", "RO", "GR"
@@ -102,6 +109,66 @@ const subscribeToCityStorage = (onStoreChange: () => void) => {
 
 const getStoredCity = () => window.localStorage.getItem(CITY_STORAGE_KEY);
 const getServerCity = () => null;
+
+const padTime = (value: number) => String(value).padStart(2, "0");
+const isSameLocalDate = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+const buildDeadlineOptions = (now: Date): DeadlineOption[] => {
+  const start = new Date(now);
+  start.setSeconds(0, 0);
+  const minutes = start.getMinutes();
+  const minutesToNextBlock = 30 - (minutes % 30 || 30);
+  start.setMinutes(minutes + minutesToNextBlock + (minutes % 30 === 0 ? 30 : 0));
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  return Array.from({ length: DEADLINE_OPTION_COUNT }, (_, index) => {
+    const optionDate = new Date(start);
+    optionDate.setMinutes(start.getMinutes() + index * 30);
+    const time = `${padTime(optionDate.getHours())}:${padTime(optionDate.getMinutes())}`;
+    const dayLabel = isSameLocalDate(optionDate, now)
+      ? "Today"
+      : isSameLocalDate(optionDate, tomorrow)
+        ? "Tomorrow"
+        : optionDate.toLocaleDateString([], { weekday: "short" });
+
+    return {
+      value: optionDate.toISOString(),
+      label: `${dayLabel} ${time}`,
+      time,
+    };
+  });
+};
+
+const parseDeadlineValue = (value: string): Date | null => {
+  const isoDeadline = new Date(value);
+  if (!Number.isNaN(isoDeadline.getTime())) {
+    return isoDeadline;
+  }
+
+  const [deadlineHour, deadlineMinute] = value.split(":").map(Number);
+  if (
+    Number.isNaN(deadlineHour) ||
+    Number.isNaN(deadlineMinute) ||
+    deadlineHour < 0 ||
+    deadlineHour > 23 ||
+    deadlineMinute < 0 ||
+    deadlineMinute > 59
+  ) {
+    return null;
+  }
+
+  const deadline = new Date();
+  deadline.setHours(deadlineHour, deadlineMinute, 0, 0);
+  if (deadline <= new Date()) {
+    deadline.setDate(deadline.getDate() + 1);
+  }
+  return deadline;
+};
 
 export default function Home() {
   const [appliances, setAppliances] = useState<Appliance[]>([]);
@@ -120,6 +187,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CityResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [deadlineOptions, setDeadlineOptions] = useState<DeadlineOption[]>([]);
 
   // Per-device UI states
   const [deadlines, setDeadlines] = useState<Record<string, string>>({});
@@ -141,6 +209,13 @@ export default function Home() {
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    const refreshDeadlineOptions = () => setDeadlineOptions(buildDeadlineOptions(new Date()));
+    refreshDeadlineOptions();
+    const timer = window.setInterval(refreshDeadlineOptions, 60000);
+    return () => window.clearInterval(timer);
   }, []);
 
   // Autocomplete search
@@ -315,6 +390,24 @@ export default function Home() {
     toast.info("Choose a city to enable price scheduling.");
   };
 
+  const getSelectedDeadlineValue = (id: string) => {
+    const savedDeadline = deadlines[id];
+    if (!deadlineOptions.length) return savedDeadline || DEFAULT_FINISH_BY;
+
+    const matchingSavedOption = deadlineOptions.find(option => option.value === savedDeadline);
+    if (matchingSavedOption) return matchingSavedOption.value;
+
+    const savedTimeOption = savedDeadline
+      ? deadlineOptions.find(option => option.time === savedDeadline)
+      : null;
+    if (savedTimeOption) return savedTimeOption.value;
+
+    return (
+      deadlineOptions.find(option => option.time === DEFAULT_FINISH_BY)?.value ??
+      deadlineOptions[deadlineOptions.length - 1].value
+    );
+  };
+
   const handleCancelSchedule = async (schedule: ScheduleJob) => {
     const jobId = schedule.job_id;
     if (!jobId) {
@@ -425,24 +518,11 @@ export default function Home() {
 
     setSchedulingIds(prev => new Set(prev).add(id));
     try {
-      const selectedDeadline = deadlines[id] || DEFAULT_FINISH_BY;
-      const [deadlineHour, deadlineMinute] = selectedDeadline.split(":").map(Number);
-      if (
-        Number.isNaN(deadlineHour) ||
-        Number.isNaN(deadlineMinute) ||
-        deadlineHour < 0 ||
-        deadlineHour > 23 ||
-        deadlineMinute < 0 ||
-        deadlineMinute > 59
-      ) {
+      const selectedDeadline = getSelectedDeadlineValue(id);
+      const deadline = parseDeadlineValue(selectedDeadline);
+      if (!deadline) {
         toast.error("Choose a valid finish-by time.");
         return;
-      }
-
-      const deadline = new Date();
-      deadline.setHours(deadlineHour, deadlineMinute, 0, 0);
-      if (deadline <= new Date()) {
-        deadline.setDate(deadline.getDate() + 1);
       }
 
       const solarMode = householdType === "grid_and_pv";
@@ -923,12 +1003,17 @@ export default function Home() {
                         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1">
                           <Clock size={11} /> Must finish by
                         </span>
-                        <input
-                          type="time"
-                          value={deadlines[app.id] ?? DEFAULT_FINISH_BY}
+                        <select
+                          value={getSelectedDeadlineValue(app.id)}
                           onChange={(e) => setDeadlines({ ...deadlines, [app.id]: e.target.value })}
                           className="w-full h-10 px-3 rounded-lg bg-white border border-slate-200 focus:border-primary font-semibold text-slate-800 outline-none"
-                        />
+                        >
+                          {deadlineOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                       </label>
                       <button
                         onClick={() => toggleQueue(app.id)}
