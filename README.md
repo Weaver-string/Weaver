@@ -22,7 +22,7 @@ When you choose a city, Weaver uses that location to fetch local electricity pri
 
 The price data is wholesale electricity market pricing. It does not represent a fixed household tariff or a utility plan where you pay the same rate all day. Weaver's price scheduling is meant to reflect dynamic electricity plans, where the price changes by time period and the utility or supplier passes some version of that signal to the customer.
 
-Live day-ahead prices require an ENTSO-E Transparency Platform API token. Put `ENTSOE_API_KEY=your_token_here` in `Models/MatterEnergyScheduler/.env`. If no token is configured, Weaver uses fallback estimates so the app can still schedule devices.
+Live day-ahead prices require an ENTSO-E Transparency Platform API token. After starting Weaver, open the info tab and paste the key into the `Live prices` setup box. Weaver saves it locally in `Models/MatterEnergyScheduler/.env`, which is ignored by Git. If no token is configured, Weaver uses fallback estimates so the app can still schedule devices.
 
 When a schedule reaches into hours where live day-ahead prices are not published yet, Weaver keeps every real price it already has and fills only the missing price windows with fallback estimates. This lets scheduling still work across a deadline while giving priority to actual market prices whenever they are available. Fallback estimates are not treated as permanent: when actual prices arrive later, they replace the synthetic prices for the same time windows.
 
@@ -89,7 +89,7 @@ Install Weaver once:
 .\install.ps1
 ```
 
-Start Weaver:
+Start Weaver for UI testing:
 
 ```powershell
 .\start-weaver.ps1
@@ -103,7 +103,29 @@ Weaver should open automatically. If it does not, open this address in your brow
 http://127.0.0.1:3000
 ```
 
-Put the Matter appliance into pairing mode, click Connect Device in Weaver, and enter the device's Matter setup code or `MT:` payload.
+## Live Price Setup
+
+Weaver can schedule with fallback price estimates, but live day-ahead prices need an ENTSO-E API key.
+
+1. Create an account on the ENTSO-E Transparency Platform.
+2. Create or copy your API token from the platform.
+3. Start Weaver.
+4. Open the info tab.
+5. Paste the token into the `Live prices` setup box.
+
+After the token is saved, that setup box disappears and Weaver starts attempting live wholesale prices. The token stays on your computer in:
+
+```text
+Models/MatterEnergyScheduler/.env
+```
+
+You can also configure it manually before starting Weaver:
+
+```text
+ENTSOE_API_KEY=your_token_here
+```
+
+## Raspberry Pi Matter Server Setup
 
 For real appliances, set Weaver's Matter Server URL before starting it:
 
@@ -111,6 +133,12 @@ For real appliances, set Weaver's Matter Server URL before starting it:
 $env:MATTER_SERVER_WS_URL="ws://RASPBERRY_PI_IP:5580/ws"
 .\start-weaver.ps1
 ```
+
+`RASPBERRY_PI_IP` is the IP address of the Raspberry Pi running Matter Server. The Pi, the Weaver machine, and the Matter appliance should be on the same home network with IPv6 enabled.
+
+Then put the Matter appliance into pairing mode, click Connect Device in Weaver, and enter the device's Matter setup code or `MT:` payload.
+
+For the full Raspberry Pi setup, see [RASPBERRY_PI_MATTER_SERVER.md](RASPBERRY_PI_MATTER_SERVER.md).
 
 After the first install, normal startup is just:
 
