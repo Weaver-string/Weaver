@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { motion } from "framer-motion";
-import { Bell, MapPin, Network, Sun } from "lucide-react";
-import { weaverApi } from "@/lib/api";
+import { Bell, KeyRound, MapPin, Network, Sun } from "lucide-react";
+import { weaverApi, type LivePriceSettings } from "@/lib/api";
 
 const CITY_STORAGE_KEY = "weaver.selectedCity";
 const ZONE_NAMES: Record<string, string> = {
@@ -40,14 +40,24 @@ const getServerCity = () => null;
 export default function InfoPage() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [household, setHousehold] = useState<HouseholdResponse | null>(null);
+  const [livePriceSettings, setLivePriceSettings] = useState<LivePriceSettings | null>(null);
+  const [entsoeApiKey, setEntsoeApiKey] = useState("");
+  const [isSavingApiKey, setIsSavingApiKey] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const selectedCity = useSyncExternalStore(subscribeToCityStorage, getStoredCity, getServerCity);
 
   useEffect(() => {
     let isMounted = true;
 
     const fetchLiveState = async () => {
-      const h = await weaverApi.getHousehold("house_1").catch(() => null) as HouseholdResponse | null;
-      if (isMounted) setHousehold(h);
+      const [h, priceSettings] = await Promise.all([
+        weaverApi.getHousehold("house_1").catch(() => null) as Promise<HouseholdResponse | null>,
+        weaverApi.getLivePriceSettings().catch(() => null) as Promise<LivePriceSettings | null>,
+      ]);
+      if (isMounted) {
+        setHousehold(h);
+        setLivePriceSettings(priceSettings);
+      }
     };
 
     fetchLiveState();
@@ -63,6 +73,28 @@ export default function InfoPage() {
   const zoneName = household?.bidding_zone ? ZONE_NAMES[household.bidding_zone] || household.bidding_zone : "";
   const cityName = selectedCity || (hasCitySet ? zoneName || "Selected city" : "");
   const energyMode = household?.household_type === "grid_and_pv" ? "Solar + grid" : "Grid only";
+  const shouldShowLivePriceSetup = livePriceSettings?.configured === false;
+
+  const handleSaveEntsoeApiKey = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedKey = entsoeApiKey.trim();
+    if (!trimmedKey) {
+      setApiKeyError("Enter an ENTSO-E API key.");
+      return;
+    }
+
+    setIsSavingApiKey(true);
+    setApiKeyError(null);
+    try {
+      const settings = await weaverApi.saveEntsoeApiKey(trimmedKey);
+      setLivePriceSettings(settings);
+      setEntsoeApiKey("");
+    } catch (error) {
+      setApiKeyError(error instanceof Error ? error.message : "Could not save the API key.");
+    } finally {
+      setIsSavingApiKey(false);
+    }
+  };
 
   return (
     <div className="px-5 pt-10 max-w-lg mx-auto space-y-6 pb-52">
@@ -97,6 +129,47 @@ export default function InfoPage() {
           </div>
         </div>
       </motion.section>
+
+      {shouldShowLivePriceSetup && (
+        <motion.section
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 }}
+          className="organic-card p-5"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-11 h-11 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+              <KeyRound size={20} />
+            </div>
+            <form onSubmit={handleSaveEntsoeApiKey} className="min-w-0 flex-1">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Live prices</p>
+              <h2 className="mt-1 text-base font-bold text-slate-950">ENTSO-E API key</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Add your ENTSO-E key to use live wholesale prices for scheduling.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <input
+                  type="password"
+                  value={entsoeApiKey}
+                  onChange={(event) => setEntsoeApiKey(event.target.value)}
+                  placeholder="Paste API key"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-primary"
+                />
+                <button
+                  type="submit"
+                  disabled={isSavingApiKey}
+                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold uppercase tracking-widest text-white disabled:opacity-60"
+                >
+                  {isSavingApiKey ? "Saving" : "Save"}
+                </button>
+              </div>
+              {apiKeyError && (
+                <p className="mt-2 text-xs font-semibold text-red-600">{apiKeyError}</p>
+              )}
+            </form>
+          </div>
+        </motion.section>
+      )}
 
       <motion.section
         initial={{ opacity: 0, y: 18 }}

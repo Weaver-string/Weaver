@@ -40,6 +40,11 @@ export interface HouseholdPayload extends JsonObject {
   pv_capacity_kw?: number;
 }
 
+export interface LivePriceSettings {
+  configured: boolean;
+  live_prices_enabled: boolean;
+}
+
 export async function fetchFromApi<T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const apiBaseUrl = getApiBaseUrl();
   let response: Response;
@@ -96,6 +101,11 @@ export const weaverApi = {
   // Market/Prices
   getCurrentPrice: (zone: string, lat?: number, lng?: number) => 
     fetchFromApi(`/prices/current/${zone}?lat=${lat || ""}&lng=${lng || ""}`),
+  getLivePriceSettings: () => fetchFromApi<LivePriceSettings>("/settings/live-prices"),
+  saveEntsoeApiKey: (apiKey: string) => fetchFromApi<LivePriceSettings>("/settings/entsoe-api-key", {
+    method: "POST",
+    body: JSON.stringify({ api_key: apiKey }),
+  }),
 
   // Household
   getHousehold: (id: string) => fetchFromApi(`/households/${id}`),

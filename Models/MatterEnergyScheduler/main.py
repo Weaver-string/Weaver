@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import List, Optional
 from contextlib import asynccontextmanager
 
@@ -106,6 +107,7 @@ app.add_middleware(
 
 logging.getLogger(__name__).info("Energy Scheduler API starting")
 logger = logging.getLogger(__name__)
+ENV_FILE = Path(__file__).resolve().parent / ".env"
 
 
 def to_naive_datetime(value: datetime) -> datetime:
@@ -118,6 +120,28 @@ def effective_duration_seconds(duration_seconds: Optional[int]) -> int:
     if duration_seconds and duration_seconds > 0:
         return duration_seconds
     return 3600
+
+
+def write_env_values(values: dict[str, str]) -> None:
+    lines = ENV_FILE.read_text().splitlines() if ENV_FILE.exists() else []
+    remaining = set(values)
+    updated_lines: list[str] = []
+
+    for line in lines:
+        key = line.split("=", 1)[0].strip()
+        if key in values and not line.lstrip().startswith("#"):
+            updated_lines.append(f"{key}={values[key]}")
+            remaining.remove(key)
+        else:
+            updated_lines.append(line)
+
+    if updated_lines and remaining:
+        updated_lines.append("")
+
+    for key in remaining:
+        updated_lines.append(f"{key}={values[key]}")
+
+    ENV_FILE.write_text("\n".join(updated_lines).rstrip() + "\n")
 
 
 def get_existing_schedules_for_request(request) -> List[ScheduledAppliance]:
@@ -221,6 +245,16 @@ class HouseholdUpdate(BaseModel):
     bess_min_soc_percent: Optional[float] = None
     bidding_zone: Optional[str] = None
 
+
+class LivePriceSettingsResponse(BaseModel):
+    configured: bool
+    live_prices_enabled: bool
+
+
+class EntsoeApiKeyRequest(BaseModel):
+    api_key: str
+
+
 class MatterDeviceRegistrationRequest(BaseModel):
     name: str
     matter_device_id: str
@@ -263,6 +297,41 @@ class MatterDiscoveryResponse(BaseModel):
 
 
 from EnergySchedulerApi.Services.location_service import LocationService
+
+
+@app.get("/settings/live-prices", response_model=LivePriceSettingsResponse)
+async def get_live_price_settings():
+    """Return whether live ENTSO-E prices are ready without exposing the API key."""
+    return LivePriceSettingsResponse(
+        configured=price_provider._has_api_key(),
+        live_prices_enabled=price_provider._live_prices_enabled(),
+    )
+
+
+@app.post("/settings/entsoe-api-key", response_model=LivePriceSettingsResponse)
+async def save_entsoe_api_key(request: EntsoeApiKeyRequest):
+    """Save the ENTSO-E API key locally and enable live price fetches immediately."""
+    api_key = request.api_key.strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key is required.")
+
+    try:
+        write_env_values({
+            "ENTSOE_API_KEY": api_key,
+            "WEAVER_LIVE_PRICES": "1",
+        })
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Could not save API key: {e}") from e
+
+    os.environ["ENTSOE_API_KEY"] = api_key
+    os.environ["WEAVER_LIVE_PRICES"] = "1"
+    price_provider.api_key = api_key
+
+    return LivePriceSettingsResponse(
+        configured=True,
+        live_prices_enabled=price_provider._live_prices_enabled(),
+    )
+
 
 # Household Management Endpoints
 @app.put("/households/{household_id}")
