@@ -170,6 +170,25 @@ const parseDeadlineValue = (value: string): Date | null => {
   return deadline;
 };
 
+const formatScheduleDateTime = (value: string | undefined) => {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const day = isSameLocalDate(date, now)
+    ? "Today"
+    : isSameLocalDate(date, tomorrow)
+      ? "Tomorrow"
+      : date.toLocaleDateString([], { month: "short", day: "numeric" });
+
+  return `${day} ${time}`;
+};
+
 export default function Home() {
   const [appliances, setAppliances] = useState<Appliance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -547,8 +566,9 @@ export default function Home() {
       setSchedules(liveSchedules);
       const scheduled = liveSchedules.find(s => String(s.appliance_id) === String(id));
       const runTime = scheduled?.next_run_time ?? scheduled?.start_time;
-      if (runTime) {
-        toast.success(`Scheduled for ${new Date(runTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+      const formattedRunTime = formatScheduleDateTime(runTime);
+      if (formattedRunTime) {
+        toast.success(`Scheduled for ${formattedRunTime}`);
       }
     } catch (error) {
       toast.error(`Could not schedule run: ${getErrorMessage(error)}`);
@@ -626,7 +646,7 @@ export default function Home() {
   const getScheduleTime = (appId: string) => {
     const schedule = schedules.find(s => String(s.appliance_id) === String(appId));
     const runTime = schedule?.next_run_time ?? schedule?.start_time;
-    return runTime ? new Date(runTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+    return formatScheduleDateTime(runTime);
   };
 
   const getSchedule = (appId: string) => schedules.find(s => String(s.appliance_id) === String(appId));

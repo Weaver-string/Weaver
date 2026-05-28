@@ -11,9 +11,15 @@ from ..Models.water_heater import WaterHeater
 class SchedulerBase:
     INTERVAL_HOURS = 0.5
     HOUSE_LIMIT_KW = 11.0
+    INTERVAL_MINUTES = 30
 
     def _now(self) -> datetime:
         return datetime.now()
+
+    def _to_naive(self, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value
+        return value.astimezone().replace(tzinfo=None)
 
     def _next_interval_start(self, dt: datetime) -> datetime:
         aligned = dt.replace(second=0, microsecond=0)
@@ -22,6 +28,95 @@ class SchedulerBase:
         if aligned.minute < 30:
             return aligned.replace(minute=30)
         return (aligned.replace(minute=0) + timedelta(hours=1))
+
+    def _interval_floor(self, dt: datetime) -> datetime:
+        value = self._to_naive(dt).replace(second=0, microsecond=0)
+        return value.replace(minute=0 if value.minute < 30 else 30)
+
+    def _normalize_prices(self, prices: List[EnergyPrice]) -> List[EnergyPrice]:
+        """Convert hourly/15-minute market points into Weaver's 30-minute blocks."""
+        sorted_prices = sorted(prices, key=lambda p: p.start_time) if prices else []
+        if not sorted_prices:
+            return []
+
+        interval = timedelta(minutes=self.INTERVAL_MINUTES)
+        buckets: dict[datetime, dict[str, float | bool]] = {}
+
+        for index, price in enumerate(sorted_prices):
+            point_start = self._to_naive(price.start_time)
+            next_start = (
+                self._to_naive(sorted_prices[index + 1].start_time)
+                if index + 1 < len(sorted_prices)
+                else point_start + interval
+            )
+            if next_start <= point_start or next_start - point_start > timedelta(hours=1):
+                next_start = point_start + timedelta(hours=1)
+
+            slot_start = self._interval_floor(point_start)
+            while slot_start < next_start:
+                slot_end = slot_start + interval
+                overlap_start = max(point_start, slot_start)
+                overlap_end = min(next_start, slot_end)
+                overlap_minutes = max(0.0, (overlap_end - overlap_start).total_seconds() / 60)
+                if overlap_minutes > 0:
+                    bucket = buckets.setdefault(
+                        slot_start,
+                        {"weighted_price": 0.0, "minutes": 0.0, "is_real": True},
+                    )
+                    bucket["weighted_price"] = float(bucket["weighted_price"]) + price.price_per_kwh * overlap_minutes
+                    bucket["minutes"] = float(bucket["minutes"]) + overlap_minutes
+                    bucket["is_real"] = bool(bucket["is_real"]) and price.is_real
+                slot_start += interval
+
+        normalized = []
+        for start_time, bucket in sorted(buckets.items()):
+            minutes = float(bucket["minutes"])
+            if minutes <= 0:
+                continue
+            normalized.append(EnergyPrice(
+                start_time=start_time,
+                price_per_kwh=float(bucket["weighted_price"]) / minutes,
+                is_real=bool(bucket["is_real"]),
+            ))
+        return normalized
+
+    def _contiguous_price_window(
+        self,
+        prices: List[EnergyPrice],
+        start_index: int,
+        num_intervals: int,
+    ) -> Optional[List[EnergyPrice]]:
+        window = prices[start_index:start_index + num_intervals]
+        if len(window) != num_intervals:
+            return None
+
+        start_time = window[0].start_time
+        for offset, price in enumerate(window):
+            expected = start_time + timedelta(minutes=self.INTERVAL_MINUTES * offset)
+            if price.start_time != expected:
+                return None
+        return window
+
+    def _solar_kw_at(self, start_time: datetime, solar_production: List[SolarProduction]) -> float:
+        if not solar_production:
+            return 0.0
+
+        interval_start = self._to_naive(start_time)
+        matching = [
+            solar.kw_produced
+            for solar in solar_production
+            if self._to_naive(solar.time) <= interval_start < self._to_naive(solar.time) + timedelta(hours=1)
+        ]
+        if matching:
+            return max(0.0, matching[-1])
+
+        nearest = min(
+            solar_production,
+            key=lambda solar: abs((self._to_naive(solar.time) - interval_start).total_seconds()),
+        )
+        if abs((self._to_naive(nearest.time) - interval_start).total_seconds()) <= 1800:
+            return max(0.0, nearest.kw_produced)
+        return 0.0
 
     def _window_fits_load(
         self,
@@ -99,7 +194,7 @@ class GridOnlyScheduler(SchedulerBase):
         existing_schedules: Optional[List[ScheduledAppliance]] = None,
         house_limit_kw: float = 11.0
     ) -> datetime:
-        prices = sorted(prices, key=lambda p: p.start_time) if prices else []
+        prices = self._normalize_prices(prices)
         num_intervals = max(1, ceil(appliance.duration.total_seconds() / (self.INTERVAL_HOURS * 3600)))
         
         min_cost = float('inf')
@@ -108,7 +203,10 @@ class GridOnlyScheduler(SchedulerBase):
         if prices:
             earliest_start = self._next_interval_start(self._now())
             for i in range(len(prices) - num_intervals + 1):
-                start_time = prices[i].start_time
+                window = self._contiguous_price_window(prices, i, num_intervals)
+                if window is None:
+                    continue
+                start_time = window[0].start_time
                 end_time = start_time + timedelta(hours=num_intervals * self.INTERVAL_HOURS)
                 if start_time < earliest_start:
                     continue
@@ -120,7 +218,7 @@ class GridOnlyScheduler(SchedulerBase):
                 profile = appliance.power_profile if appliance.power_profile else [appliance.power_usage_kw] * num_intervals
                 
                 cost = sum(
-                    prices[i + j].price_per_kwh * profile[j] * self.INTERVAL_HOURS
+                    window[j].price_per_kwh * profile[j] * self.INTERVAL_HOURS
                     for j in range(num_intervals)
                 )
                 if cost < min_cost:
@@ -140,7 +238,7 @@ class GridOnlyScheduler(SchedulerBase):
         house_limit_kw: float = 11.0
     ) -> List[ScheduledAppliance]:
         """Special logic for EVs: find the N cheapest 30m intervals before deadline"""
-        prices = sorted(prices, key=lambda p: p.start_time)
+        prices = self._normalize_prices(prices)
         intervals_needed = max(1, ceil(appliance.duration_seconds / (self.INTERVAL_HOURS * 3600)))
         
         valid_intervals = []
@@ -182,7 +280,7 @@ class GridAndPvScheduler(SchedulerBase):
         existing_schedules: Optional[List[ScheduledAppliance]] = None,
         house_limit_kw: float = 11.0
     ) -> datetime:
-        prices = sorted(prices, key=lambda p: p.start_time) if prices else []
+        prices = self._normalize_prices(prices)
         solar_production = sorted(solar_production, key=lambda s: s.time) if solar_production else []
         num_intervals = max(1, ceil(appliance.duration.total_seconds() / (self.INTERVAL_HOURS * 3600)))
         
@@ -192,7 +290,10 @@ class GridAndPvScheduler(SchedulerBase):
         if prices:
             earliest_start = self._next_interval_start(self._now())
             for i in range(len(prices) - num_intervals + 1):
-                start_time = prices[i].start_time
+                window = self._contiguous_price_window(prices, i, num_intervals)
+                if window is None:
+                    continue
+                start_time = window[0].start_time
                 end_time = start_time + timedelta(hours=num_intervals * self.INTERVAL_HOURS)
                 if start_time < earliest_start:
                     continue
@@ -207,10 +308,9 @@ class GridAndPvScheduler(SchedulerBase):
                 solar_kwh = 0
                 grid_cost = 0
                 for j in range(num_intervals):
-                    price = prices[i + j]
+                    price = window[j]
                     p_load = profile[j]
-                    solar = next((s for s in solar_production if s.time == price.start_time), None)
-                    solar_available = solar.kw_produced * self.INTERVAL_HOURS if solar else 0
+                    solar_available = self._solar_kw_at(price.start_time, solar_production) * self.INTERVAL_HOURS
                     solar_kwh += min(solar_available, p_load * self.INTERVAL_HOURS)
                     grid_kwh = max(0, p_load * self.INTERVAL_HOURS - solar_available)
                     grid_cost += grid_kwh * price.price_per_kwh
@@ -240,7 +340,7 @@ class GridPvAndBessScheduler(SchedulerBase):
         existing_schedules: Optional[List[ScheduledAppliance]] = None,
         house_limit_kw: float = 11.0
     ) -> datetime:
-        prices = sorted(prices, key=lambda p: p.start_time) if prices else []
+        prices = self._normalize_prices(prices)
         solar_production = sorted(solar_production, key=lambda s: s.time) if solar_production else []
         num_intervals = max(1, ceil(appliance.duration.total_seconds() / (self.INTERVAL_HOURS * 3600)))
 
@@ -250,7 +350,10 @@ class GridPvAndBessScheduler(SchedulerBase):
         if prices:
             earliest_start = self._next_interval_start(self._now())
             for i in range(len(prices) - num_intervals + 1):
-                start_time = prices[i].start_time
+                window = self._contiguous_price_window(prices, i, num_intervals)
+                if window is None:
+                    continue
+                start_time = window[0].start_time
                 end_time = start_time + timedelta(hours=num_intervals * self.INTERVAL_HOURS)
                 if start_time < earliest_start:
                     continue
@@ -268,10 +371,9 @@ class GridPvAndBessScheduler(SchedulerBase):
                 solar_used = 0
 
                 for j in range(num_intervals):
-                    price = prices[i + j]
+                    price = window[j]
                     p_load = profile[j]
-                    solar = next((s for s in solar_production if s.time == price.start_time), None)
-                    solar_available = solar.kw_produced * self.INTERVAL_HOURS if solar else 0
+                    solar_available = self._solar_kw_at(price.start_time, solar_production) * self.INTERVAL_HOURS
                     appliance_demand = p_load * self.INTERVAL_HOURS
 
                     solar_for_appliance = min(solar_available, appliance_demand)
@@ -317,7 +419,7 @@ class WaterHeaterScheduler(SchedulerBase):
         bess_capacity_kwh: float = 0.0,
         bess_min_soc_kwh: float = 0.0
     ) -> datetime:
-        prices = sorted(prices, key=lambda p: p.start_time) if prices else []
+        prices = self._normalize_prices(prices)
         solar_production = sorted(solar_production, key=lambda s: s.time) if solar_production else []
         num_intervals = max(1, ceil(heater.duration_seconds / (self.INTERVAL_HOURS * 3600)))
 
@@ -339,7 +441,10 @@ class WaterHeaterScheduler(SchedulerBase):
 
         if prices:
             for i in range(len(prices) - num_intervals + 1):
-                start_time = prices[i].start_time
+                window = self._contiguous_price_window(prices, i, num_intervals)
+                if window is None:
+                    continue
+                start_time = window[0].start_time
                 end_time = start_time + timedelta(hours=num_intervals * self.INTERVAL_HOURS)
                 if end_time > heater.deadline:
                     continue
@@ -352,9 +457,8 @@ class WaterHeaterScheduler(SchedulerBase):
                 bess_soc = current_bess_soc_kwh
 
                 for j in range(num_intervals):
-                    price = prices[i + j]
-                    solar = next((s for s in solar_production if s.time == price.start_time), None)
-                    solar_available = solar.kw_produced * self.INTERVAL_HOURS if solar else 0
+                    price = window[j]
+                    solar_available = self._solar_kw_at(price.start_time, solar_production) * self.INTERVAL_HOURS
                     demand = heater.power_usage_kw * self.INTERVAL_HOURS
 
                     solar_for_heater = min(solar_available, demand)

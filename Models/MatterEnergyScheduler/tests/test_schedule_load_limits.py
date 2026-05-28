@@ -9,7 +9,7 @@ from EnergySchedulerApi.Models.household import Household
 from EnergySchedulerApi.Models.household_type import HouseholdType
 from EnergySchedulerApi.Models.scheduled_appliance import ScheduledAppliance
 from EnergySchedulerApi.Models.solar_production import SolarProduction
-from EnergySchedulerApi.Services.scheduling_strategies import GridOnlyScheduler
+from EnergySchedulerApi.Services.scheduling_strategies import GridAndPvScheduler, GridOnlyScheduler
 
 
 def test_existing_schedules_include_other_pending_jobs(monkeypatch) -> None:
@@ -159,3 +159,36 @@ def test_grid_pv_schedule_accepts_timezone_aware_deadline(monkeypatch) -> None:
     result = asyncio.run(main.schedule_grid_pv(request))
 
     assert result == {"start_time": base, "job_id": "job-1"}
+
+
+def test_grid_pv_normalizes_price_and_solar_windows() -> None:
+    base = datetime(2026, 5, 29, 6, 0, 0)
+    appliance = Appliance(
+        id="dishwasher",
+        name="Dishwasher",
+        power_usage_kw=0.8,
+        duration_seconds=45 * 60,
+        deadline=base.replace(hour=23),
+        matter_device_id="virtual_test_load",
+        matter_device_ip="127.0.0.1",
+        device_type="virtual_load",
+    )
+    prices = [
+        EnergyPrice(start_time=base.replace(hour=7), price_per_kwh=0.13),
+        EnergyPrice(start_time=base.replace(hour=8), price_per_kwh=0.14),
+        EnergyPrice(start_time=base.replace(hour=14), price_per_kwh=0.001),
+        EnergyPrice(start_time=base.replace(hour=14, minute=15), price_per_kwh=0.001),
+        EnergyPrice(start_time=base.replace(hour=14, minute=30), price_per_kwh=0.0),
+        EnergyPrice(start_time=base.replace(hour=14, minute=45), price_per_kwh=0.0),
+    ]
+    solar = [
+        SolarProduction(time=base.replace(hour=7), kw_produced=0.46),
+        SolarProduction(time=base.replace(hour=14), kw_produced=0.68),
+    ]
+
+    scheduler = GridAndPvScheduler()
+    scheduler._now = lambda: base  # type: ignore[method-assign]
+
+    start_time = scheduler.calculate_optimal_start_time(appliance, prices, solar)
+
+    assert start_time == base.replace(hour=14)
