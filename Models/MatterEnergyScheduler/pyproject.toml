@@ -3,8 +3,6 @@ line-length = 120
 target-version = "py313"
 exclude = [
   "examples.py",
-  "test_imports.py",
-  "src/EnergySchedulerApi/Infrastructure/open_meteo_solar_forecast_backup.py",
 ]
 
 [tool.ruff.lint]
