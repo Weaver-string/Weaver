@@ -192,3 +192,52 @@ def test_grid_pv_normalizes_price_and_solar_windows() -> None:
     start_time = scheduler.calculate_optimal_start_time(appliance, prices, solar)
 
     assert start_time == base.replace(hour=14)
+
+
+def test_price_normalization_handles_common_entso_resolutions() -> None:
+    scheduler = GridOnlyScheduler()
+    base = datetime(2026, 5, 29, 0, 0, 0)
+
+    cases = [
+        [
+            EnergyPrice(start_time=base, price_per_kwh=0.10),
+            EnergyPrice(start_time=base + timedelta(hours=1), price_per_kwh=0.20),
+        ],
+        [
+            EnergyPrice(start_time=base, price_per_kwh=0.10),
+            EnergyPrice(start_time=base + timedelta(minutes=30), price_per_kwh=0.20),
+        ],
+        [
+            EnergyPrice(start_time=base, price_per_kwh=0.10),
+            EnergyPrice(start_time=base + timedelta(minutes=15), price_per_kwh=0.30),
+            EnergyPrice(start_time=base + timedelta(minutes=30), price_per_kwh=0.20),
+            EnergyPrice(start_time=base + timedelta(minutes=45), price_per_kwh=0.40),
+        ],
+    ]
+
+    expected_prices = [
+        [0.10, 0.10, 0.20],
+        [0.10, 0.20],
+        [0.20, 0.30],
+    ]
+
+    for prices, expected in zip(cases, expected_prices):
+        normalized = scheduler._normalize_prices(prices)
+        assert [price.start_time for price in normalized[:len(expected)]] == [
+            base + timedelta(minutes=30 * index)
+            for index in range(len(expected))
+        ]
+        assert [round(price.price_per_kwh, 3) for price in normalized[:len(expected)]] == expected
+
+
+def test_solar_lookup_maps_hourly_forecast_to_half_hour_blocks() -> None:
+    scheduler = GridAndPvScheduler()
+    base = datetime(2026, 5, 29, 14, 0, 0)
+    solar = [
+        SolarProduction(time=base, kw_produced=0.68),
+        SolarProduction(time=base + timedelta(hours=1), kw_produced=0.45),
+    ]
+
+    assert scheduler._solar_kw_at(base, solar) == 0.68
+    assert scheduler._solar_kw_at(base + timedelta(minutes=30), solar) == 0.68
+    assert scheduler._solar_kw_at(base + timedelta(hours=1), solar) == 0.45
