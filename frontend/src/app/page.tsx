@@ -786,7 +786,6 @@ export default function Home() {
 
       <header className="flex justify-between items-start mb-10">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-slate-400 mb-2">Smart energy scheduler</p>
           <h1 className="text-5xl font-bold text-slate-950 tracking-tight">Weaver</h1>
           <button 
             onClick={() => setIsSearchingLocation(true)} 
