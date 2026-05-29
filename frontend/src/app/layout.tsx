@@ -5,6 +5,9 @@ import { Navigation } from "@/components/Navigation";
 export const metadata: Metadata = {
   title: "Weaver | Smart Energy Scheduler",
   description: "Optimize your home energy usage with Matter and real-time price tracking.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export const viewport = {
