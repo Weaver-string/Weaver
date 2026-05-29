@@ -4,6 +4,60 @@ Weaver is a local-first smart energy scheduler for Matter appliances, designed t
 
 It runs inside the user's home network, connects to a Matter controller over WebSocket, and schedules flexible appliances around grid prices and optional solar production.
 
+## Project Summary
+
+Weaver is a working full-stack prototype for home energy flexibility. It explores a practical question: if a home appliance does not need to run immediately, can local software choose a better time based on electricity prices, solar forecasts, and the user's deadline?
+
+The current version focuses on Matter-compatible appliances controlled through a Raspberry Pi Matter Server. A user chooses a city, connects an appliance, sets when the appliance must be finished, and Weaver schedules the run locally.
+
+## Why This Matters
+
+More homes are adding rooftop solar, dynamic electricity tariffs, EV chargers, batteries, and connected appliances. That creates an opportunity for small flexible loads to move away from expensive or grid-stressed periods and toward cheaper or solar-rich periods.
+
+Weaver is not trying to replace a utility platform. It is a local-first experiment in making household flexibility understandable and usable from inside the home.
+
+## What I Built
+
+- A Next.js frontend for appliance pairing, city selection, home mode selection, live price setup, and schedule visibility.
+- A FastAPI backend that manages appliances, schedules, location data, price data, and Matter Server communication.
+- A deadline-aware scheduler that works in 30-minute blocks and accounts for appliance runtime.
+- Grid-only scheduling that chooses the lowest-cost valid run window.
+- Solar + grid scheduling that prioritizes forecast solar production before using grid price optimization.
+- ENTSO-E day-ahead wholesale price integration, with fallback prices only for missing future windows.
+- Open-Meteo solar forecast integration for estimating solar-aware scheduling windows.
+- Raspberry Pi Matter Server documentation for local appliance commissioning and control.
+- Windows scripts for local development, installation, startup, shutdown, and uninstall.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    User["User browser"]
+    Frontend["Weaver UI<br/>Next.js"]
+    Backend["Weaver backend<br/>FastAPI"]
+    Scheduler["Scheduling logic<br/>price + solar + deadline"]
+    Entsoe["ENTSO-E<br/>wholesale prices"]
+    Meteo["Open-Meteo<br/>solar forecast"]
+    Pi["Raspberry Pi<br/>Matter Server"]
+    Appliance["Matter appliance"]
+
+    User --> Frontend
+    Frontend --> Backend
+    Backend --> Scheduler
+    Scheduler --> Entsoe
+    Scheduler --> Meteo
+    Backend --> Pi
+    Pi --> Appliance
+```
+
+## Technical Focus
+
+- Local-first control: Weaver runs on the user's home network and talks to a local Matter Server.
+- Energy optimization: schedules are based on deadlines, runtime, price windows, solar forecasts, and a home load limit.
+- Resilient price handling: real ENTSO-E prices are preferred, while fallback estimates fill only the windows where live prices are not available yet.
+- Product usability: the UI shows when an appliance is scheduled to turn on, whether it is idle, scheduled, or running, and allows schedules to be cancelled.
+- Practical deployment path: the project targets Raspberry Pi Matter Server setups for real appliance control.
+
 ## What Weaver Does Now
 
 - Connects Matter appliances through a configured Matter Server.
