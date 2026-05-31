@@ -4,6 +4,8 @@ Weaver is a local-first smart energy scheduler for Matter appliances, designed t
 
 It runs inside the user's home network, connects to a Matter controller over WebSocket, and schedules flexible appliances around grid prices and optional solar production.
 
+![Weaver home screen showing city-based scheduling, solar mode, and a connected dishwasher](docs/screenshots/weaver-home-scheduling.png)
+
 ## Project Summary
 
 Weaver is a working full-stack prototype for home energy flexibility. It explores a practical question: if a home appliance does not need to run immediately, can local software choose a better time based on electricity prices, solar forecasts, and the user's deadline?
