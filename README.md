@@ -6,6 +6,8 @@ It runs inside the user's home network, connects to a Matter controller over Web
 
 ![Weaver home screen showing city-based scheduling, solar mode, and a connected dishwasher](docs/screenshots/weaver-home-scheduling.png)
 
+![Weaver scheduling demo](docs/screenshots/weaver-demo.gif)
+
 ## Project Summary
 
 Weaver is a working full-stack prototype for home energy flexibility. It explores a practical question: if a home appliance does not need to run immediately, can local software choose a better time based on electricity prices, solar forecasts, and the user's deadline?
